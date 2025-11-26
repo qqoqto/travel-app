@@ -2,503 +2,447 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>2026大阪之旅 (可編輯版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日本関西の旅 2025</title>
     
-    <!-- 1. 載入 Tailwind CSS -->
+    <!-- 1. 引入 Tailwind CSS (樣式) -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- 2. 載入 React 核心 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+    <!-- 2. 引入 Babel (讓瀏覽器看懂 React JSX) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- 3. 載入 Babel -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js" crossorigin="anonymous"></script>
-
+    <!-- 3. 設定 Import Map (讓瀏覽器知道去哪裡抓 React 和圖示庫) -->
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.263.1"
+      }
+    }
+    </script>
+    
     <style>
-        body { 
-            background-color: #F0F0F0; 
-            margin: 0; 
-            padding: 0; 
-            -webkit-tap-highlight-color: transparent;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            overflow: hidden;
-        }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        @keyframes slide-up { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .animate-slide-up { animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-        .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
-        
-        input:focus, select:focus, textarea:focus { outline: 2px solid #F59E0B; outline-offset: -2px; }
+      /* 修正 iOS 底部安全區域 */
+      .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
-    <script type="text/babel">
-        window.addEventListener('load', () => {
-            try {
-                const { useState, useEffect, useRef } = React;
+    <!-- 4. 應用程式主邏輯 -->
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useMemo } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { 
+          MapPin, Train, Navigation, Utensils, ShoppingBag, Info, 
+          Phone, Wallet, Calendar, CloudSun, ChevronDown, ChevronUp,
+          Plane, BedDouble, Sun, CloudRain, Wind
+        } from 'lucide-react';
 
-                // --- 1. Icons ---
-                const Icon = ({ path, size = 24, className = "", ...props }) => (
-                    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{path}</svg>
-                );
+        // --- Data & Configuration ---
+        const THEME = {
+          bg: "bg-[#f4f1ea]", // Washi paper color
+          cardBg: "bg-white",
+          text: "text-stone-800",
+          subText: "text-stone-500",
+          accent: "text-emerald-700",
+          accentBg: "bg-emerald-700",
+          accentLight: "bg-emerald-50",
+          border: "border-stone-200",
+        };
 
-                const Icons = {
-                    Calendar: <g><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></g>,
-                    MapPin: <g><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></g>,
-                    Train: <g><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="8" y2="21" /><line x1="16" y1="21" x2="16" y2="21" /><path d="M2 17h20" /><path d="M4 17l1.5 4" /><path d="M20 17l-1.5 4" /></g>,
-                    ShoppingBag: <g><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" /></g>,
-                    Wallet: <g><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" /><path d="M4 6v12a2 2 0 0 0 2 2h14v-4" /><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z" /></g>,
-                    List: <g><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></g>,
-                    User: <g><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></g>,
-                    Plus: <g><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></g>,
-                    CheckCircle: <g><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></g>,
-                    Plane: <g><path d="M2 22h20" /><path d="M12 2l3.09 10.91L21 16l-1.04 2.87-8.08-2.61L6.1 22 2.87 21l3.09-8.73L2 2" /></g>,
-                    Home: <g><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></g>,
-                    Settings: <g><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></g>,
-                    Sparkles: <g><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /><path d="M5 3v4" /><path d="M9 5H5" /><path d="M3 5h2" /><path d="M5 7v-2" /></g>,
-                    Camera: <g><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3" /></g>,
-                    Utensils: <g><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" /><path d="M7 2v20" /><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" /></g>,
-                    X: <g><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></g>,
-                    Navigation: <g><polygon points="3 11 22 2 13 21 11 13 3 11" /></g>,
-                    ChevronRight: <g><polyline points="9 18 15 12 9 6" /></g>,
-                    MoreHorizontal: <g><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></g>,
-                    Edit: <g><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></g>,
-                    Trash: <g><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></g>,
-                    Save: <g><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></g>
-                };
+        const LOCATIONS_WEATHER_COORDS = {
+          "Osaka": { lat: 34.6937, lon: 135.5023, name: "大阪" },
+          "Kyoto": { lat: 35.0116, lon: 135.7681, name: "京都" },
+          "Nara": { lat: 34.6851, lon: 135.8048, name: "奈良" },
+          "Amanohashidate": { lat: 35.5689, lon: 135.1932, name: "天橋立" },
+        };
 
-                const Calendar = (props) => <Icon path={Icons.Calendar} {...props} />;
-                const MapPin = (props) => <Icon path={Icons.MapPin} {...props} />;
-                const Train = (props) => <Icon path={Icons.Train} {...props} />;
-                const ShoppingBag = (props) => <Icon path={Icons.ShoppingBag} {...props} />;
-                const Wallet = (props) => <Icon path={Icons.Wallet} {...props} />;
-                const List = (props) => <Icon path={Icons.List} {...props} />;
-                const User = (props) => <Icon path={Icons.User} {...props} />;
-                const Plus = (props) => <Icon path={Icons.Plus} {...props} />;
-                const CheckCircle = (props) => <Icon path={Icons.CheckCircle} {...props} />;
-                const Plane = (props) => <Icon path={Icons.Plane} {...props} />;
-                const Home = (props) => <Icon path={Icons.Home} {...props} />;
-                const Settings = (props) => <Icon path={Icons.Settings} {...props} />;
-                const Sparkles = (props) => <Icon path={Icons.Sparkles} {...props} />;
-                const Camera = (props) => <Icon path={Icons.Camera} {...props} />;
-                const Utensils = (props) => <Icon path={Icons.Utensils} {...props} />;
-                const X = (props) => <Icon path={Icons.X} {...props} />;
-                const Navigation = (props) => <Icon path={Icons.Navigation} {...props} />;
-                const ChevronRight = (props) => <Icon path={Icons.ChevronRight} {...props} />;
-                const MoreHorizontal = (props) => <Icon path={Icons.MoreHorizontal} {...props} />;
-                const Edit = (props) => <Icon path={Icons.Edit} {...props} />;
-                const Trash = (props) => <Icon path={Icons.Trash} {...props} />;
-                const Save = (props) => <Icon path={Icons.Save} {...props} />;
+        const ITINERARY_DATA = [
+          {
+            day: 1,
+            date: "Day 1",
+            location: "Osaka",
+            events: [
+              { time: "下午", title: "抵達關西機場 → 難波", type: "transport", cost: 920, detail: "南海電鐵空港急行", icon: Train },
+              { time: "傍晚", title: "心齋橋、道頓堀", type: "sightseeing", cost: 0, detail: "步行漫遊", icon: ShoppingBag, 
+                tips: ["必吃：本家章魚燒", "必拍：固力果跑跑人", "晚餐推薦：金龍拉麵或大阪燒"] },
+            ]
+          },
+          {
+            day: 2,
+            date: "Day 2",
+            location: "Osaka",
+            events: [
+              { time: "09:00", title: "通天閣", type: "sightseeing", cost: 230, detail: "地鐵堺筋線 (惠美須町站)", icon: MapPin, tips: ["必吃：炸串 (Kushikatsu)"] },
+              { time: "11:30", title: "大阪城天守閣", type: "sightseeing", cost: 280, detail: "地鐵中央線 (森之宮站)", icon: MapPin, tips: ["攻略：建議搭乘御座船遊護城河"] },
+              { time: "14:30", title: "梅田空中庭園 / HEP FIVE", type: "sightseeing", cost: 230, detail: "地鐵梅田站", icon: MapPin, tips: ["購物：百貨激戰區", "必拍：紅色摩天輪"] },
+              { time: "19:30", title: "阿倍野 Harukas 夜景", type: "sightseeing", cost: 230, detail: "地鐵御堂筋線 (天王寺站)", icon: MapPin, tips: ["體驗：300公尺高空迴廊"] },
+            ]
+          },
+          {
+            day: 3,
+            date: "Day 3",
+            location: "Kyoto",
+            events: [
+              { time: "08:00", title: "嵐山竹林、天龍寺、渡月橋", type: "sightseeing", cost: 400, detail: "阪急電車", icon: MapPin, tips: ["必喝：% Arabica 咖啡", "午餐：嵐山豆腐鍋"] },
+              { time: "13:00", title: "宇治平等院、宇治川", type: "sightseeing", cost: 230, detail: "JR或京阪電車", icon: MapPin, tips: ["必吃：中村藤吉本店抹茶凍", "伴手禮：伊藤久右衛門"] },
+              { time: "晚上", title: "祇園夜景 (可選)", type: "sightseeing", cost: 230, detail: "公車或步行", icon: MapPin, tips: ["注意：可能會遇到藝妓，請勿觸摸"] },
+            ]
+          },
+          {
+            day: 4,
+            date: "Day 4",
+            location: "Amanohashidate",
+            events: [
+              { time: "06:00", title: "大阪 → 天橋立", type: "transport", cost: 4000, detail: "JR西日本特急 (はしだて号)", icon: Train, tips: ["重要：需提前劃位"] },
+              { time: "10:00", title: "天橋立散步、觀景台", type: "sightseeing", cost: 800, detail: "步行 + 纜車", icon: MapPin, tips: ["體驗：彎腰從胯下看「飛龍在天」"] },
+              { time: "13:00", title: "伊根舟屋觀光", type: "sightseeing", cost: 750, detail: "公車或計程車", icon: MapPin, tips: ["必看：海上京都獨特建築", "體驗：餵海鷗"] },
+              { time: "16:00", title: "返回大阪", type: "transport", cost: 4000, detail: "JR或高速巴士", icon: Train },
+            ]
+          },
+          {
+            day: 5,
+            date: "Day 5",
+            location: "Kyoto",
+            events: [
+              { time: "08:00", title: "京都東山 (八坂神社、清水寺)", type: "sightseeing", cost: 230, detail: "京都公車或地鐵", icon: MapPin, tips: ["必走：二年坂、三年坂", "甜點：八橋"] },
+              { time: "13:00", title: "貴船神社", type: "sightseeing", cost: 400, detail: "公車 + 步行", icon: MapPin, tips: ["體驗：水占卜", "景色：紅燈籠參道"] },
+              { time: "傍晚", title: "返回京都或大阪", type: "transport", cost: 500, detail: "公車或JR", icon: Train },
+            ]
+          },
+          {
+            day: 6,
+            date: "Day 6",
+            location: "Nara",
+            events: [
+              { time: "08:00", title: "勝尾寺祈福", type: "sightseeing", cost: 425, detail: "阪急寶塚線", icon: MapPin, tips: ["特色：達摩不倒翁勝地"] },
+              { time: "12:00", title: "奈良半日遊 (東大寺、公園)", type: "sightseeing", cost: 620, detail: "近鐵奈良線", icon: MapPin, tips: ["必做：餵鹿 (小心咬人)", "必吃：中谷堂現搗麻糬"] },
+              { time: "17:00", title: "黑門市場晚餐", type: "food", cost: 0, detail: "地鐵或步行", icon: Utensils, tips: ["美食：海鮮燒烤、神戶牛"] },
+            ]
+          },
+          {
+            day: 7,
+            date: "Day 7",
+            location: "Osaka",
+            events: [
+              { time: "上午", title: "心齋橋、難波最後採買", type: "shopping", cost: 0, detail: "步行", icon: ShoppingBag, tips: ["必買：藥妝、Uniqlo、零食"] },
+              { time: "中午", title: "前往關西機場", type: "transport", cost: 920, detail: "南海電鐵或JR", icon: Plane, tips: ["提醒：預留2.5小時以上check-in"] },
+            ]
+          }
+        ];
 
-                // --- Theme ---
-                const THEMES = {
-                    gold: { name: '金閣', primary: 'bg-amber-500', secondary: 'bg-amber-100', text: 'text-amber-600', border: 'border-amber-500' },
-                    green: { name: '宇治', primary: 'bg-emerald-600', secondary: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-600' },
-                    pink: { name: '哲學', primary: 'bg-rose-400', secondary: 'bg-rose-100', text: 'text-rose-500', border: 'border-rose-400' },
-                    blue: { name: '鴨川', primary: 'bg-sky-500', secondary: 'bg-sky-100', text: 'text-sky-600', border: 'border-sky-500' },
-                    grey: { name: '祇園', primary: 'bg-stone-600', secondary: 'bg-stone-200', text: 'text-stone-700', border: 'border-stone-600' },
-                };
+        // --- Components ---
 
-                const INITIAL_ITINERARY = [
-                    {
-                        day: 1, date: "1/17 (六)", 
-                        spots: [
-                            { id: 'start', type: 'start', name: "Vessel Inn Namba", time: "09:00", desc: "點擊導航", icon: 'Home' },
-                            { id: 't1', type: 'transport', name: "御堂筋線", time: "約 15分", icon: 'Train' },
-                            { id: 1, type: 'spot', name: "大阪城天守閣", sub: "大阪・中央區", time: "10:00", img: "https://images.unsplash.com/photo-1543789311-53644a4b27c1?auto=format&fit=crop&q=80&w=600", icon: 'MapPin' },
-                            { id: 't2', type: 'transport', name: "JR環狀線", time: "約 20分", icon: 'Train' },
-                            { id: 2, type: 'spot', name: "通天閣", sub: "新世界商店街", time: "12:00", img: "https://images.unsplash.com/photo-1590554881752-9a840e96e24c?auto=format&fit=crop&q=80&w=600", icon: 'MapPin' },
-                            { id: 't3', type: 'transport', name: "步行", time: "約 10分", icon: 'User' },
-                            { id: 3, type: 'food', name: "千房 大阪燒", sub: "大阪・道頓堀", time: "13:30", img: "https://images.unsplash.com/photo-1582450871972-ab5ca641643d?auto=format&fit=crop&q=80&w=600", icon: 'Utensils' },
-                            { id: 4, type: 'shop', name: "心齋橋筋", sub: "藥妝採購", time: "15:00", img: "https://images.unsplash.com/photo-1590253232298-23961168f080?auto=format&fit=crop&q=80&w=600", icon: 'ShoppingBag' },
-                            { id: 'end', type: 'return', name: "Vessel Inn Namba", time: "", desc: "點擊導航", icon: 'Home' },
-                        ]
-                    },
-                    { day: 2, date: "1/18 (日)", spots: [] },
-                    { day: 3, date: "1/19 (一)", spots: [] },
-                    { day: 4, date: "1/20 (二)", spots: [] },
-                    { day: 5, date: "1/21 (三)", spots: [] },
-                ];
+        const WeatherBadge = ({ location }) => {
+          const [weather, setWeather] = useState(null);
+          const coords = LOCATIONS_WEATHER_COORDS[location];
 
-                // --- Components ---
+          useEffect(() => {
+            if (!coords) return;
+            const fetchWeather = async () => {
+              try {
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current_weather=true`);
+                const data = await res.json();
+                setWeather(data.current_weather);
+              } catch (e) {
+                console.error("Weather fetch failed", e);
+              }
+            };
+            fetchWeather();
+          }, [coords]);
 
-                const Modal = ({ isOpen, onClose, children, title }) => {
-                    if (!isOpen) return null;
-                    return (
-                        <div className="fixed inset-0 bg-black/60 z-[100] flex items-end justify-center backdrop-blur-sm transition-opacity duration-300">
-                            <div className="bg-[#FDFCF8] w-full max-w-[480px] rounded-t-[2rem] p-6 animate-slide-up shadow-2xl max-h-[85vh] overflow-y-auto safe-area-bottom">
-                                <div className="flex justify-between items-center mb-6 sticky top-0 bg-[#FDFCF8] z-10">
-                                    <h3 className="font-bold text-xl text-stone-800 tracking-wide">{title}</h3>
-                                    <button onClick={onClose} className="p-2 bg-stone-100 rounded-full hover:bg-stone-200 transition-colors">
-                                        <X size={20} className="text-stone-500" />
-                                    </button>
-                                </div>
-                                {children}
-                            </div>
-                        </div>
-                    );
-                };
+          if (!weather) return <div className="text-xs text-stone-400 animate-pulse">載入天氣中...</div>;
 
-                // 簡單的編輯/新增 Modal
-                const EditSpotModal = ({ isOpen, onClose, initialData, onSave }) => {
-                    const [formData, setFormData] = useState(initialData || { name: '', time: '', desc: '', type: 'spot' });
+          const isRainy = [51, 53, 55, 61, 63, 65, 80, 81, 82].includes(weather.weathercode);
+          const isCloudy = [1, 2, 3].includes(weather.weathercode);
+          
+          return (
+            <div className="flex items-center gap-1 text-xs font-medium bg-white/60 px-2 py-1 rounded-full backdrop-blur-sm border border-stone-200/50 shadow-sm text-stone-600">
+              {isRainy ? <CloudRain size={14} className="text-blue-500"/> : isCloudy ? <CloudSun size={14} className="text-orange-400"/> : <Sun size={14} className="text-orange-500"/>}
+              <span>{coords.name} {weather.temperature}°C</span>
+            </div>
+          );
+        };
 
-                    useEffect(() => {
-                        if (isOpen && initialData) {
-                            setFormData(initialData);
-                        } else if (isOpen) {
-                            setFormData({ name: '', time: '', desc: '', type: 'spot' });
-                        }
-                    }, [isOpen, initialData]);
+        const Tag = ({ children, color }) => (
+          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold tracking-wide mr-1 mb-1 ${color}`}>
+            {children}
+          </span>
+        );
 
-                    const handleChange = (e) => {
-                        setFormData({ ...formData, [e.target.name]: e.target.value });
-                    };
+        const EventCard = ({ event }) => {
+          const handleNavClick = () => {
+            const query = encodeURIComponent(event.title + " " + (event.location || "Japan"));
+            window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+          };
 
-                    const handleSubmit = () => {
-                        onSave(formData);
-                        onClose();
-                    };
+          return (
+            <div className={`relative pl-4 pb-8 border-l-2 ${THEME.border} last:border-l-0 last:pb-0 group`}>
+              <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 border-white ${event.type === 'transport' ? 'bg-stone-400' : 'bg-emerald-500'} shadow-sm z-10`} />
+              
+              <div className={`${THEME.cardBg} p-4 rounded-xl shadow-sm border ${THEME.border} active:scale-[0.99] transition-transform`}>
+                <div className="flex justify-between items-start mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded text-white ${event.type === 'transport' ? 'bg-stone-400' : 'bg-stone-800'}`}>
+                      {event.time}
+                    </span>
+                    <span className="text-xs text-stone-400 uppercase tracking-wider">{event.type}</span>
+                  </div>
+                  {event.cost > 0 && (
+                    <span className="text-xs font-semibold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded">
+                      ¥{event.cost}
+                    </span>
+                  )}
+                </div>
 
-                    return (
-                        <Modal isOpen={isOpen} onClose={onClose} title={initialData ? "編輯行程" : "新增行程"}>
-                            <div className="flex flex-col gap-4">
-                                <div>
-                                    <label className="text-xs font-bold text-stone-400 uppercase">時間</label>
-                                    <input name="time" value={formData.time} onChange={handleChange} placeholder="例如: 10:00" className="w-full bg-stone-50 p-3 rounded-xl mt-1" />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-stone-400 uppercase">名稱</label>
-                                    <input name="name" value={formData.name} onChange={handleChange} placeholder="地點名稱" className="w-full bg-stone-50 p-3 rounded-xl mt-1 font-bold" />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-stone-400 uppercase">類型</label>
-                                    <select name="type" value={formData.type} onChange={handleChange} className="w-full bg-stone-50 p-3 rounded-xl mt-1">
-                                        <option value="spot">景點</option>
-                                        <option value="food">美食</option>
-                                        <option value="shop">購物</option>
-                                        <option value="transport">交通</option>
-                                        <option value="start">起點</option>
-                                        <option value="return">終點</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-stone-400 uppercase">備註 / 導航描述</label>
-                                    <input name="desc" value={formData.desc || ''} onChange={handleChange} placeholder="例如: 點擊導航" className="w-full bg-stone-50 p-3 rounded-xl mt-1" />
-                                </div>
-                                <button onClick={handleSubmit} className="w-full bg-amber-500 text-white font-bold py-4 rounded-xl mt-4 shadow-lg active:scale-95 transition-transform">
-                                    儲存
-                                </button>
-                            </div>
-                        </Modal>
-                    );
-                };
+                <h3 className="text-lg font-bold text-stone-800 mb-1 flex items-center gap-2">
+                  {event.title}
+                </h3>
+                
+                <div className="text-sm text-stone-600 mb-3 flex items-center gap-1.5">
+                  <event.icon size={14} className="text-emerald-600" />
+                  {event.detail}
+                </div>
 
-                // --- Views ---
-
-                const HomeView = ({ theme, setThemeColor, setShowThemeSettings, showThemeSettings }) => {
-                    const [wishlist, setWishlist] = useState([]);
-                    const [showAddSpot, setShowAddSpot] = useState(false);
-                    const [spotName, setSpotName] = useState('');
-
-                    return (
-                        <div className="pb-28 min-h-full bg-[#FDFCF8]">
-                            <div className="relative h-[35vh] max-h-[400px] w-full overflow-hidden rounded-b-[2.5rem] shadow-xl">
-                                <img src="https://images.unsplash.com/photo-1590253232298-23961168f080?auto=format&fit=crop&q=80&w=1000" alt="Dotonbori" className="w-full h-full object-cover brightness-[0.7]" />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30"></div>
-                                <button onClick={() => setShowThemeSettings(true)} className="absolute top-12 right-6 p-2.5 bg-white/10 backdrop-blur-md rounded-full text-white border border-white/20 active:scale-95"><Settings size={20} /></button>
-                                <div className="absolute bottom-8 left-8 text-white">
-                                    <h1 className="text-4xl font-serif font-bold tracking-wider mb-2 drop-shadow-lg">2026大阪之旅</h1>
-                                    <div className="flex items-center gap-2 opacity-90 text-sm font-medium tracking-widest bg-white/20 px-3 py-1 rounded-full w-fit backdrop-blur-sm">
-                                        <Calendar size={14} /> <span>1/17 - 1/22</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="px-6 -mt-10 relative z-10">
-                                <div className={`${theme.primary} rounded-3xl p-6 text-white shadow-xl shadow-stone-200 mb-6 relative overflow-hidden ring-4 ring-[#FDFCF8]`}>
-                                    <div className="relative z-10"><h2 className="font-bold text-lg flex items-center gap-2 mb-1"><span className="text-xl">♥</span> 收藏清單</h2><p className="text-xs opacity-90 font-light">收錄想去的大阪角落。</p></div>
-                                    <div className="absolute -right-4 -bottom-8 opacity-20 text-9xl font-serif select-none pointer-events-none">✿</div>
-                                </div>
-                                <button onClick={() => setShowAddSpot(true)} className={`w-full border-2 border-dashed ${theme.border} ${theme.text} bg-stone-50 rounded-2xl py-4 font-bold flex items-center justify-center gap-2 mb-6 active:scale-[0.98]`}><Plus size={18} /> 新增許願地點</button>
-                                {wishlist.length === 0 && <div className="bg-[#F5F5F0] rounded-2xl h-32 flex items-center justify-center border border-stone-100 mb-8"><p className="text-stone-400 text-sm font-medium">尚未收藏任何地點</p></div>}
-                                {wishlist.length > 0 && <div className="grid grid-cols-2 gap-3 mb-8">{wishlist.map(item => <div key={item.id} className="bg-white p-4 rounded-2xl shadow-sm border border-stone-100"><span className="font-bold text-stone-700">{item.name}</span></div>)}</div>}
-                            </div>
-                            <Modal isOpen={showThemeSettings} onClose={() => setShowThemeSettings(false)} title="風格設定">
-                                <div className="space-y-6">
-                                    <div className="flex justify-between gap-2 overflow-x-auto pb-2">{Object.entries(THEMES).map(([key, t]) => (<button key={key} onClick={() => setThemeColor(key)} className={`w-14 h-14 rounded-2xl ${t.primary} flex items-center justify-center text-white`}>{theme === t && <CheckCircle size={24} />}</button>))}</div>
-                                    <button onClick={() => setShowThemeSettings(false)} className={`w-full py-4 ${theme.primary} text-white font-bold rounded-2xl`}>完成</button>
-                                </div>
-                            </Modal>
-                            <Modal isOpen={showAddSpot} onClose={() => setShowAddSpot(false)} title="新增地點">
-                                <div className="space-y-4">
-                                    <input value={spotName} onChange={(e) => setSpotName(e.target.value)} placeholder="地點名稱" className="w-full bg-white border-2 border-stone-200 p-4 rounded-xl font-bold" />
-                                    <button onClick={() => {if(spotName){setWishlist([...wishlist, {id: Date.now(), name: spotName}]); setSpotName(''); setShowAddSpot(false);}}} className={`w-full py-4 ${theme.primary} text-white font-bold rounded-xl`}>加入清單</button>
-                                </div>
-                            </Modal>
-                        </div>
-                    );
-                };
-
-                const ItineraryView = ({ theme }) => {
-                    const [itinerary, setItinerary] = useState(INITIAL_ITINERARY);
-                    const [currentDay, setCurrentDay] = useState(1);
-                    const [isEditing, setIsEditing] = useState(false);
-                    const [isModalOpen, setIsModalOpen] = useState(false);
-                    const [editingSpot, setEditingSpot] = useState(null);
-
-                    const currentDayData = itinerary.find(d => d.day === currentDay);
-
-                    const getIcon = (iconName) => {
-                        const IconComp = Icons[iconName] || Icons.MapPin;
-                        return <Icon path={IconComp} size={iconName === 'Train' || iconName === 'User' ? 12 : 20} />;
-                    };
-
-                    const handleDelete = (spotId) => {
-                        const newItinerary = itinerary.map(day => {
-                            if(day.day === currentDay) {
-                                return { ...day, spots: day.spots.filter(s => s.id !== spotId) };
-                            }
-                            return day;
-                        });
-                        setItinerary(newItinerary);
-                    };
-
-                    const handleEditClick = (spot) => {
-                        if (!isEditing) return;
-                        setEditingSpot(spot);
-                        setIsModalOpen(true);
-                    };
-
-                    const handleAddClick = () => {
-                        setEditingSpot(null);
-                        setIsModalOpen(true);
-                    };
-
-                    const handleSaveSpot = (data) => {
-                        const newItinerary = itinerary.map(day => {
-                            if (day.day === currentDay) {
-                                if (editingSpot) {
-                                    return { ...day, spots: day.spots.map(s => s.id === editingSpot.id ? { ...s, ...data, icon: getIconNameByType(data.type) } : s) };
-                                } else {
-                                    return { ...day, spots: [...day.spots, { id: Date.now(), ...data, icon: getIconNameByType(data.type) }] };
-                                }
-                            }
-                            return day;
-                        });
-                        setItinerary(newItinerary);
-                    };
-
-                    const getIconNameByType = (type) => {
-                        switch(type) {
-                            case 'food': return 'Utensils';
-                            case 'shop': return 'ShoppingBag';
-                            case 'transport': return 'Train';
-                            case 'start': return 'Home';
-                            case 'return': return 'Home';
-                            default: return 'MapPin';
-                        }
-                    };
-
-                    return (
-                        <div className="pb-28 pt-4 bg-[#FDFCF8]">
-                            <div className="flex overflow-x-auto gap-4 px-6 py-4 no-scrollbar mb-2 snap-x">
-                                {itinerary.map((d) => (
-                                    <button key={d.day} onClick={() => setCurrentDay(d.day)} className={`snap-center flex-shrink-0 w-[4.5rem] h-[4.5rem] rounded-full flex flex-col items-center justify-center transition-all duration-300 border-2 ${currentDay === d.day ? `${theme.primary} ${theme.border} text-white shadow-lg scale-105` : 'bg-white text-stone-400 border-stone-100'}`}>
-                                        <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">Day</span><span className="text-2xl font-serif font-bold">{d.day}</span>
-                                    </button>
-                                ))}
-                            </div>
-                            
-                            <div className="px-6 mb-8 flex justify-between items-end">
-                                <h2 className="text-4xl font-serif font-bold text-stone-800">Day {currentDay}</h2>
-                                <div className="flex gap-2">
-                                    <button onClick={() => setIsEditing(!isEditing)} className={`flex items-center gap-1.5 border px-4 py-2 rounded-full text-xs font-bold shadow-sm transition-all ${isEditing ? 'bg-stone-800 text-white border-stone-800' : 'bg-white border-stone-200 text-stone-600'}`}>
-                                        {isEditing ? <><Save size={14}/> 完成</> : <><Edit size={14}/> 編輯</>}
-                                    </button>
-                                    {!isEditing && <button className="flex items-center gap-1.5 bg-white border border-stone-200 text-stone-600 px-4 py-2 rounded-full text-xs font-bold shadow-sm"><Sparkles size={14} /> AI 順路</button>}
-                                </div>
-                            </div>
-
-                            <div className="relative px-4 pb-12">
-                                <div className="absolute left-[3.5rem] top-4 bottom-4 w-0.5 bg-stone-200 -z-10"></div>
-                                <div className="space-y-6">
-                                    {currentDayData && currentDayData.spots.map((item) => {
-                                        const isTransport = item.type === 'transport';
-                                        const isStartOrReturn = item.type === 'start' || item.type === 'return';
-
-                                        return (
-                                            <div key={item.id} className="flex items-start gap-4 relative group">
-                                                {isEditing && (
-                                                    <button onClick={() => handleDelete(item.id)} className="absolute -right-2 -top-2 bg-red-500 text-white p-1.5 rounded-full shadow-md z-20 animate-bounce">
-                                                        <Trash size={14} />
-                                                    </button>
-                                                )}
-
-                                                <div className={`w-14 text-right flex-shrink-0 ${isTransport ? 'pt-2' : 'pt-1 text-sm'} font-bold ${isTransport ? 'text-stone-400 text-xs' : 'text-stone-600 font-mono'}`}>
-                                                    {item.time}
-                                                </div>
-
-                                                <div className="relative flex-1" onClick={() => handleEditClick(item)}>
-                                                    {isTransport ? (
-                                                        <div className="absolute -left-[1.65rem] w-5 h-5 bg-white border border-stone-200 rounded-full flex items-center justify-center z-10 text-stone-400">
-                                                            {getIcon(item.icon)}
-                                                        </div>
-                                                    ) : (
-                                                        <div className={`w-3 h-3 rounded-full ${isStartOrReturn ? 'bg-stone-800' : theme.primary} absolute -left-[1.45rem] top-2.5 ring-4 ring-[#FDFCF8]`}></div>
-                                                    )}
-
-                                                    {isTransport ? (
-                                                        <div className={`bg-[#F5F5F0] px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-bold text-stone-500 ${isEditing ? 'border-2 border-dashed border-stone-300 cursor-pointer' : ''}`}>
-                                                            <Train size={12} /><span>{item.name}</span>
-                                                        </div>
-                                                    ) : isStartOrReturn ? (
-                                                        <div className={`bg-white border border-stone-100 p-4 rounded-2xl shadow-sm flex items-center gap-4 ${isEditing ? 'border-2 border-dashed border-stone-300 cursor-pointer' : ''}`}>
-                                                            <div className="bg-stone-100 p-2.5 rounded-xl text-stone-600">{getIcon(item.icon)}</div>
-                                                            <div>
-                                                                <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-0.5">{item.type === 'start' ? 'START' : 'RETURN'}</p>
-                                                                <h3 className="font-bold text-stone-800 text-lg">{item.name}</h3>
-                                                                <button onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.name)}`, '_blank'); }} className="flex items-center gap-1 text-xs text-stone-400 mt-1 hover:text-blue-600 hover:underline transition-colors">
-                                                                    <Navigation size={10} /> {item.desc}
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div className={`bg-white rounded-3xl overflow-hidden shadow-sm border border-stone-100 ${isEditing ? 'border-2 border-dashed border-stone-300 cursor-pointer' : ''}`}>
-                                                            {item.img && (
-                                                                <div className="h-32 w-full relative">
-                                                                    <img src={item.img} className="w-full h-full object-cover" />
-                                                                    <div className="absolute top-3 left-3 bg-white/90 backdrop-blur px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-stone-600 border border-white/50">{item.type}</div>
-                                                                </div>
-                                                            )}
-                                                            <div className="p-4">
-                                                                <h3 className="font-bold text-xl text-stone-800 mb-1">{item.name}</h3>
-                                                                <div className="flex items-center gap-1 text-stone-400 text-xs mb-4"><MapPin size={12} /> {item.sub || item.desc}</div>
-                                                                <button className="w-full py-2.5 rounded-xl border border-stone-200 text-stone-400 text-sm font-bold hover:bg-stone-50 transition-colors">{isEditing ? '編輯內容' : '移出'}</button>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-
-                                    {isEditing && (
-                                        <button onClick={handleAddClick} className="py-4 border-2 border-dashed border-stone-300 rounded-2xl text-stone-400 font-bold flex items-center justify-center gap-2 hover:bg-stone-50 transition-colors ml-14 w-[calc(100%-3.5rem)]">
-                                            <Plus size={20} /> 新增行程
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-
-                            <EditSpotModal 
-                                isOpen={isModalOpen} 
-                                onClose={() => setIsModalOpen(false)} 
-                                initialData={editingSpot} 
-                                onSave={handleSaveSpot} 
-                            />
-                        </div>
-                    );
-                };
-
-                const WalletView = ({ theme }) => {
-                    const [transactions, setTransactions] = useState([]);
-                    const [showAdd, setShowAdd] = useState(false);
-                    const [form, setForm] = useState({name:'', amount:''});
-                    return (
-                        <div className="pb-28 pt-6 px-6 bg-[#FDFCF8] min-h-full">
-                            <div className={`bg-amber-500 rounded-3xl p-6 text-white shadow-lg mb-6`}>
-                                <p className="text-xs opacity-80 font-bold">總支出</p>
-                                <p className="text-3xl font-serif font-bold">¥{transactions.reduce((a,c)=>a+Number(c.amount),0).toLocaleString()}</p>
-                            </div>
-                            <div className="space-y-3">
-                                {transactions.map(t=><div key={t.id} className="flex justify-between p-3 border-b"><span className="font-bold">{t.name}</span><span className="font-mono">-¥{t.amount}</span></div>)}
-                            </div>
-                            <button onClick={()=>setShowAdd(true)} className="w-full bg-stone-800 text-white py-4 rounded-2xl mt-6 font-bold">記一筆</button>
-                            <Modal isOpen={showAdd} onClose={()=>setShowAdd(false)} title="記一筆">
-                                <div className="space-y-4">
-                                    <input value={form.name} onChange={e=>setForm({...form, name:e.target.value})} placeholder="項目" className="w-full bg-stone-50 p-3 rounded-xl" />
-                                    <input value={form.amount} onChange={e=>setForm({...form, amount:e.target.value})} placeholder="金額" type="number" className="w-full bg-stone-50 p-3 rounded-xl" />
-                                    <button onClick={()=>{setTransactions([...transactions, {id:Date.now(), ...form}]); setShowAdd(false); setForm({name:'', amount:''})}} className="w-full bg-amber-500 text-white py-3 rounded-xl font-bold">確認</button>
-                                </div>
-                            </Modal>
-                        </div>
-                    );
-                };
-
-                const ShoppingView = () => (
-                    <div className="pb-28 pt-6 px-6 bg-[#FDFCF8] min-h-full flex flex-col items-center justify-center text-stone-300">
-                        <ShoppingBag size={48} className="mb-2" />
-                        <p className="font-bold">尚無商品</p>
+                {event.tips && (
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {event.tips.map((tip, idx) => {
+                       if (tip.includes("必吃") || tip.includes("美食")) return <Tag key={idx} color="bg-orange-100 text-orange-700">美食</Tag>;
+                       if (tip.includes("必買") || tip.includes("購物")) return <Tag key={idx} color="bg-pink-100 text-pink-700">購物</Tag>;
+                       if (tip.includes("重要") || tip.includes("注意")) return <Tag key={idx} color="bg-red-100 text-red-700">重要</Tag>;
+                       return <Tag key={idx} color="bg-emerald-50 text-emerald-700">推薦</Tag>;
+                    })}
+                    <div className="text-xs text-stone-500 italic leading-relaxed w-full mt-1 pl-1 border-l-2 border-stone-200">
+                       {event.tips.join(" • ")}
                     </div>
-                );
+                  </div>
+                )}
 
-                const GuideView = () => (
-                    <div className="pb-28 pt-12 px-6 bg-[#FDFCF8] min-h-full">
-                        <h2 className="text-3xl font-serif font-bold text-stone-800 mb-8">旅のしおり</h2>
-                        <div className="space-y-2">
-                            {['護照', 'VJW', '網卡'].map(i => <div key={i} className="p-4 border rounded-xl flex items-center gap-3"><div className="w-4 h-4 rounded border"></div>{i}</div>)}
+                <button 
+                  onClick={handleNavClick}
+                  className="w-full mt-2 flex items-center justify-center gap-2 py-2 rounded-lg bg-stone-50 text-stone-600 text-sm font-medium hover:bg-stone-100 active:bg-stone-200 transition-colors border border-stone-100"
+                >
+                  <Navigation size={14} />
+                  導航前往
+                </button>
+              </div>
+            </div>
+          );
+        };
+
+        const DayCard = ({ dayData, isOpen, toggle }) => {
+          return (
+            <div className="mb-4">
+              <button 
+                onClick={toggle}
+                className={`w-full flex items-center justify-between p-4 rounded-xl shadow-sm border ${THEME.border} ${THEME.cardBg} relative overflow-hidden transition-all duration-300 ${isOpen ? 'ring-2 ring-emerald-500/20' : ''}`}
+              >
+                <div className="flex flex-col items-start z-10">
+                  <span className="text-xs font-bold text-emerald-700 tracking-wider mb-0.5">{dayData.date}</span>
+                  <h2 className="text-xl font-bold text-stone-800">{dayData.location}</h2>
+                </div>
+                
+                <div className="flex items-center gap-3 z-10">
+                   <WeatherBadge location={dayData.location} />
+                   {isOpen ? <ChevronUp className="text-stone-400" /> : <ChevronDown className="text-stone-400" />}
+                </div>
+                
+                <div className="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-stone-50 to-transparent pointer-events-none" />
+              </button>
+
+              {isOpen && (
+                <div className="mt-4 px-2 animate-in slide-in-from-top-4 fade-in duration-300">
+                  {dayData.events.map((event, idx) => (
+                    <EventCard key={idx} event={event} />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        const BudgetView = () => {
+          const totalTransport = useMemo(() => {
+            return ITINERARY_DATA.reduce((acc, day) => {
+              return acc + day.events.reduce((dAcc, ev) => dAcc + (ev.cost || 0), 0);
+            }, 0);
+          }, []);
+
+          return (
+            <div className="p-4 space-y-6 pb-24">
+              <div className={`${THEME.cardBg} p-6 rounded-2xl shadow-sm border ${THEME.border} text-center`}>
+                <div className="text-stone-500 text-sm mb-1">預估交通總花費</div>
+                <div className="text-4xl font-bold text-stone-800 tracking-tight">
+                  ¥{totalTransport.toLocaleString()}
+                  <span className="text-sm font-normal text-stone-400 ml-1">JPY</span>
+                </div>
+                <div className="text-xs text-stone-400 mt-2">約合 TWD {(totalTransport * 0.21).toFixed(0)} (匯率 0.21)</div>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-stone-700 px-1">費用明細</h3>
+                {ITINERARY_DATA.map(day => {
+                  const dayCost = day.events.reduce((acc, ev) => acc + (ev.cost || 0), 0);
+                  if (dayCost === 0) return null;
+                  return (
+                    <div key={day.day} className={`${THEME.cardBg} p-4 rounded-xl border ${THEME.border} flex justify-between items-center`}>
+                      <div>
+                        <div className="font-bold text-stone-700">{day.date} - {day.location}</div>
+                        <div className="text-xs text-stone-500">
+                          {day.events.filter(e => e.cost > 0).map(e => e.detail).join(", ")}
                         </div>
+                      </div>
+                      <div className="font-mono font-bold text-stone-600">¥{dayCost}</div>
                     </div>
-                );
+                  );
+                })}
+              </div>
+            </div>
+          );
+        };
 
-                const TabBar = ({ activeTab, setActiveTab, theme }) => {
-                    const tabs = [
-                        { id: 'home', icon: 'List', label: '首頁' },
-                        { id: 'itinerary', icon: 'MapPin', label: '行程' },
-                        { id: 'wallet', icon: 'Wallet', label: '記帳' },
-                        { id: 'shopping', icon: 'ShoppingBag', label: '購物' },
-                        { id: 'guide', icon: 'User', label: '手冊' }
-                    ];
-                    return (
-                        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-100 px-6 py-3 flex justify-between items-center z-50 safe-area-bottom shadow-[0_-5px_30px_rgba(0,0,0,0.04)]">
-                            {tabs.map(t => (
-                                <button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex flex-col items-center gap-0.5 ${activeTab === t.id ? theme.text : 'text-stone-300'}`}>
-                                    <Icon path={Icons[t.icon]} size={24} strokeWidth={activeTab === t.id ? 2.5 : 2} />
-                                    <span className="text-[10px] font-medium">{t.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                    );
-                };
+        const InfoView = () => (
+          <div className="p-4 space-y-4 pb-24">
+            <div className={`${THEME.cardBg} p-5 rounded-xl border ${THEME.border}`}>
+              <h3 className="flex items-center gap-2 font-bold text-stone-800 mb-3">
+                <Plane size={18} className="text-emerald-600" />
+                航班資訊 (範例)
+              </h3>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between border-b border-stone-100 pb-2">
+                  <span className="text-stone-500">去程</span>
+                  <span className="font-medium">JX820 TPE 07:40 - KIX 11:10</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-stone-500">回程</span>
+                  <span className="font-medium">JX821 KIX 12:20 - TPE 14:30</span>
+                </div>
+              </div>
+            </div>
 
-                const App = () => {
-                    const [activeTab, setActiveTab] = useState('home');
-                    const [themeColor, setThemeColor] = useState('gold');
-                    const [showThemeSettings, setShowThemeSettings] = useState(false);
-                    
-                    useEffect(() => {
-                        const setVh = () => document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
-                        setVh(); window.addEventListener('resize', setVh);
-                        return () => window.removeEventListener('resize', setVh);
-                    }, []);
+            <div className={`${THEME.cardBg} p-5 rounded-xl border ${THEME.border}`}>
+              <h3 className="flex items-center gap-2 font-bold text-stone-800 mb-3">
+                <BedDouble size={18} className="text-emerald-600" />
+                住宿清單
+              </h3>
+              <div className="p-3 bg-stone-50 rounded-lg text-sm text-stone-600 mb-2">
+                <div className="font-bold text-stone-800">大阪難波 Holiday Inn</div>
+                <div className="text-xs text-stone-400 mt-1">Day 1-2, Day 6</div>
+                <button className="text-emerald-600 text-xs mt-2 underline">開啟地圖</button>
+              </div>
+              <div className="p-3 bg-stone-50 rounded-lg text-sm text-stone-600">
+                <div className="font-bold text-stone-800">京都車站 Hotel Keihan</div>
+                <div className="text-xs text-stone-400 mt-1">Day 3-5</div>
+              </div>
+            </div>
 
-                    return (
-                        <div className="min-h-screen bg-[#F0F0F0] text-stone-800 font-sans flex justify-center">
-                            <div className="w-full sm:max-w-md bg-[#FDFCF8] shadow-2xl overflow-hidden relative sm:my-8 sm:rounded-[2.5rem] flex flex-col h-[calc(var(--vh,1vh)*100)] sm:h-[90vh]">
-                                <div className="flex-1 overflow-y-auto no-scrollbar scroll-smooth">
-                                    {activeTab === 'home' && <HomeView theme={THEMES[themeColor]} setThemeColor={setThemeColor} setShowThemeSettings={setShowThemeSettings} showThemeSettings={showThemeSettings} />}
-                                    {activeTab === 'itinerary' && <ItineraryView theme={THEMES[themeColor]} />}
-                                    {activeTab === 'wallet' && <WalletView theme={THEMES[themeColor]} />}
-                                    {activeTab === 'shopping' && <ShoppingView />}
-                                    {activeTab === 'guide' && <GuideView />}
-                                </div>
-                                <TabBar activeTab={activeTab} setActiveTab={setActiveTab} theme={THEMES[themeColor]} />
-                            </div>
-                        </div>
-                    );
-                };
+            <div className={`${THEME.cardBg} p-5 rounded-xl border-l-4 border-red-400 shadow-sm`}>
+              <h3 className="flex items-center gap-2 font-bold text-stone-800 mb-3">
+                <Phone size={18} className="text-red-500" />
+                緊急聯絡
+              </h3>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="bg-red-50 p-2 rounded text-center">
+                  <div className="text-red-400 text-xs">報警</div>
+                  <div className="font-bold text-red-700 text-lg">110</div>
+                </div>
+                <div className="bg-red-50 p-2 rounded text-center">
+                  <div className="text-red-400 text-xs">救護車</div>
+                  <div className="font-bold text-red-700 text-lg">119</div>
+                </div>
+                <div className="col-span-2 bg-stone-50 p-3 rounded text-center">
+                  <div className="text-stone-400 text-xs">台北駐大阪辦事處</div>
+                  <div className="font-bold text-stone-700 select-all">+81-6-6227-8623</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
 
-                const root = ReactDOM.createRoot(document.getElementById('root'));
-                root.render(<App />);
-            } catch (err) {
-                console.error(err);
-                document.body.innerHTML = `<div style="padding:20px;color:red">Error: ${err.message}</div>`;
-            }
-        });
+        function App() {
+          const [activeTab, setActiveTab] = useState('itinerary');
+          const [openDay, setOpenDay] = useState(1);
+
+          const toggleDay = (day) => {
+            setOpenDay(openDay === day ? null : day);
+          };
+
+          return (
+            <div className={`min-h-screen ${THEME.bg} font-sans selection:bg-emerald-100 pb-20 max-w-md mx-auto shadow-2xl overflow-hidden relative`}>
+              {/* Header */}
+              <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-stone-200 px-6 py-4 flex justify-between items-center">
+                <div>
+                  <h1 className="text-xl font-black text-stone-800 tracking-tight">日本関西の旅</h1>
+                  <p className="text-xs text-stone-500 font-medium tracking-wide">7 Days / Osaka & Kyoto</p>
+                </div>
+                <button className="bg-stone-100 p-2 rounded-full hover:bg-stone-200 transition-colors">
+                  <Calendar size={20} className="text-stone-600" />
+                </button>
+              </header>
+
+              {/* Main Content */}
+              <main className="transition-opacity duration-300">
+                {activeTab === 'itinerary' && (
+                  <div className="p-4 space-y-2 pb-24">
+                    {ITINERARY_DATA.map((dayData) => (
+                      <DayCard 
+                        key={dayData.day} 
+                        dayData={dayData} 
+                        isOpen={openDay === dayData.day} 
+                        toggle={() => toggleDay(dayData.day)} 
+                      />
+                    ))}
+                    <div className="text-center text-stone-400 text-xs mt-8 mb-4">
+                      <p>旅行的意義，在於發現未知的自己。</p>
+                      <p className="font-serif italic mt-1">- Japan Trip 2025</p>
+                    </div>
+                  </div>
+                )}
+                
+                {activeTab === 'info' && <InfoView />}
+                
+                {activeTab === 'budget' && <BudgetView />}
+              </main>
+
+              {/* Bottom Navigation */}
+              <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 pb-safe pt-2 px-6 flex justify-between items-center z-40 max-w-md mx-auto">
+                <button 
+                  onClick={() => setActiveTab('itinerary')}
+                  className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${activeTab === 'itinerary' ? 'text-emerald-700 scale-110' : 'text-stone-400 hover:text-stone-600'}`}
+                >
+                  <MapPin size={24} strokeWidth={activeTab === 'itinerary' ? 2.5 : 2} />
+                  <span className="text-[10px] font-bold">行程</span>
+                </button>
+
+                <button 
+                  onClick={() => setActiveTab('info')}
+                  className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${activeTab === 'info' ? 'text-emerald-700 scale-110' : 'text-stone-400 hover:text-stone-600'}`}
+                >
+                  <Info size={24} strokeWidth={activeTab === 'info' ? 2.5 : 2} />
+                  <span className="text-[10px] font-bold">資訊</span>
+                </button>
+
+                <button 
+                  onClick={() => setActiveTab('budget')}
+                  className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${activeTab === 'budget' ? 'text-emerald-700 scale-110' : 'text-stone-400 hover:text-stone-600'}`}
+                >
+                  <Wallet size={24} strokeWidth={activeTab === 'budget' ? 2.5 : 2} />
+                  <span className="text-[10px] font-bold">預算</span>
+                </button>
+              </nav>
+              
+              {/* Decorative Blur Element */}
+              <div className="fixed -bottom-20 -right-20 w-64 h-64 bg-emerald-100 rounded-full blur-3xl opacity-20 pointer-events-none z-0" />
+              <div className="fixed top-20 -left-20 w-64 h-64 bg-orange-50 rounded-full blur-3xl opacity-30 pointer-events-none z-0" />
+            </div>
+          );
+        }
+
+        // Render the app
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
 </html>
