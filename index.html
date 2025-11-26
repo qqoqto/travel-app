@@ -2,848 +2,667 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>2026 阪京之旅</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>2026大阪之旅</title>
     
-    <!-- React & ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
-    <!-- Babel -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Tailwind CSS -->
+    <!-- 1. 載入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- FontAwesome & Google Fonts -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- 2. 載入 React 核心 (改用 cdnjs) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+    
+    <!-- 3. 載入 Babel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js" crossorigin="anonymous"></script>
 
     <style>
-        body {
-            font-family: 'Noto Sans TC', sans-serif;
-            background-color: #FDFCF8; /* 影片中的米色背景 */
+        body { 
+            background-color: #F0F0F0; 
+            margin: 0; 
+            padding: 0; 
             -webkit-tap-highlight-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        @keyframes slide-up { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-slide-up { animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
         
-        /* 隱藏滾動條但保持功能 */
-        .no-scrollbar::-webkit-scrollbar {
+        /* Loading 畫面樣式 */
+        #loading {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #FDFCF8;
+            z-index: 9999;
+            transition: opacity 0.5s;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #E7E5E4;
+            border-top-color: #F59E0B;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* 錯誤訊息樣式 */
+        #error-msg {
             display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        /* 模擬 iOS 底部安全區 */
-        .safe-area-bottom {
-            padding-bottom: env(safe-area-inset-bottom, 20px);
-        }
-
-        /* 動畫效果 */
-        .fade-in {
-            animation: fadeIn 0.3s ease-in-out;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* 自定義顏色 */
-        .bg-kyoto-gold { background-color: #D4AF37; }
-        .text-kyoto-gold { color: #D4AF37; }
-        .border-kyoto-gold { border-color: #D4AF37; }
-        
-        /* AI 閃爍效果 */
-        @keyframes sparkle {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-        .animate-sparkle {
-            animation: sparkle 2s infinite;
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            padding: 20px;
+            background: #FEE2E2;
+            color: #DC2626;
+            border-radius: 12px;
+            z-index: 10000;
+            font-size: 14px;
+            border: 1px solid #EF4444;
         }
     </style>
 </head>
-<body class="bg-[#FDFCF8] text-gray-800 h-screen overflow-hidden">
+<body>
+    <!-- Loading 指示器 -->
+    <div id="loading">
+        <div class="spinner"></div>
+        <p style="margin-top: 20px; color: #78716C; font-weight: bold; font-size: 14px;">正在啟動大阪之旅...</p>
+    </div>
+
+    <!-- 錯誤訊息容器 -->
+    <div id="error-msg"></div>
+
+    <!-- App 容器 -->
     <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
-
-        // ---------------------------------------------------------
-        // 🎉 您的 Google Gemini API Key 已成功嵌入！🎉
-        // ---------------------------------------------------------
-        const apiKey = "AIzaSyDOVudJOKxWfLPN-N1pxolabpS5Rw_v9l4"; 
-        // ---------------------------------------------------------
-        
-        // Helper function to call Gemini
-        async function callGemini(prompt, systemInstruction = "") {
-            if (!apiKey) {
-                alert("請先在程式碼中填入 API Key 才能使用 AI 功能喔！");
-                throw new Error("No API Key");
+    <!-- 錯誤捕捉腳本 -->
+    <script>
+        window.onerror = function(msg, url, line, col, error) {
+            const errorDiv = document.getElementById('error-msg');
+            const loadingDiv = document.getElementById('loading');
+            if (loadingDiv) loadingDiv.style.display = 'none';
+            if (errorDiv) {
+                errorDiv.style.display = 'block';
+                errorDiv.innerHTML = `<strong>發生錯誤：</strong><br>${msg}<br><br>請檢查網路連線，或確認您的瀏覽器支援 React。`;
             }
-
-            // 確保金鑰已嵌入後，執行 API 呼叫
-            try {
-                // 為了處理重複呼叫問題，加入簡單的指數退避重試機制
-                const maxRetries = 3;
-                let lastError = null;
-                for (let i = 0; i < maxRetries; i++) {
-                    try {
-                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                contents: [{ parts: [{ text: prompt }] }],
-                                systemInstruction: { parts: [{ text: systemInstruction }] },
-                                generationConfig: {
-                                    responseMimeType: "application/json"
-                                }
-                            })
-                        });
-                        
-                        const data = await response.json();
-                        
-                        if (data.error) {
-                            throw new Error(data.error.message);
-                        }
-                        
-                        // 成功解析 JSON
-                        return JSON.parse(data.candidates[0].content.parts[0].text);
-                        
-                    } catch (error) {
-                        lastError = error;
-                        // 如果是網路錯誤或解析錯誤，等待一段時間後重試
-                        if (i < maxRetries - 1) {
-                            await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
-                        }
-                    }
-                }
-                throw lastError; // 所有重試都失敗
-            } catch (error) {
-                console.error("Gemini API Error:", error);
-                
-                // 為了不讓用戶卡住，即使失敗也返回一個預設值
-                if (systemInstruction.includes("financial advisor")) {
-                    return { advice: "API 請求失敗，AI 正在喝抹茶休息中...🍵" };
-                } else {
-                    return [{ name: "AI 推薦失敗", category: "景點", note: "請檢查網路或 API Key 限制" }];
-                }
-            }
-        }
-        
-        // --- 圖示組件 ---
-        const Icons = {
-            Hotel: () => <i className="fas fa-bed"></i>,
-            Spot: () => <i className="fas fa-camera"></i>,
-            Food: () => <i className="fas fa-utensils"></i>,
-            Shopping: () => <i className="fas fa-shopping-bag"></i>,
-            Transport: () => <i className="fas fa-train"></i>,
-            Walk: () => <i className="fas fa-walking"></i>,
-            Plus: () => <i className="fas fa-plus"></i>,
-            Map: () => <i className="fas fa-map-marked-alt"></i>,
-            List: () => <i className="fas fa-list-ul"></i>,
-            Wallet: () => <i className="fas fa-wallet"></i>,
-            Book: () => <i className="fas fa-book-open"></i>,
-            Bolt: () => <i className="fas fa-bolt"></i>,
-            Check: () => <i className="fas fa-check"></i>,
-            Trash: () => <i className="fas fa-trash-alt"></i>,
-            Magic: () => <i className="fas fa-wand-magic-sparkles"></i>,
-            Brain: () => <i className="fas fa-brain"></i>,
+            console.error("Global Error:", msg, error);
         };
+    </script>
 
-        // --- 模擬資料 ---
-        const INITIAL_SPOTS = [
-            { id: 1, day: 1, name: 'KOKO HOTEL 京都', category: '住宿', time: '09:00', icon: 'Hotel', note: '起點' },
-            { id: 2, day: 1, name: '清水寺', category: '景點', time: '10:00', icon: 'Spot', note: '京都・東山' },
-            { id: 3, day: 1, name: '@cosme OSAKA旗艦店', category: '購物', time: '11:00', icon: 'Shopping', note: '大阪府大阪市' },
-            { id: 4, day: 1, name: '奧丹 湯豆腐', category: '美食', time: '12:30', icon: 'Food', note: '京都・清水' },
-            { id: 5, day: 1, name: 'KOKO HOTEL 京都', category: '住宿', time: '18:00', icon: 'Hotel', note: '返回' },
-        ];
+    <!-- React 應用程式 -->
+    <script type="text/babel">
+        // 等待 DOM 載入
+        window.addEventListener('load', () => {
+            try {
+                const { useState, useEffect } = React;
 
-        const INITIAL_EXPENSES = [
-            { id: 1, name: '章魚燒', amount: 800, type: 'food' },
-            { id: 2, name: '清水寺門票', amount: 400, type: 'ticket' },
-        ];
+                // --- 圖示元件 ---
+                const Icon = ({ path, size = 24, className = "", ...props }) => (
+                    <svg 
+                        width={size} height={size} viewBox="0 0 24 24" fill="none" 
+                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
+                        className={className} {...props}
+                    >
+                        {path}
+                    </svg>
+                );
 
-        // --- 主應用程式 ---
-        function App() {
-            const [activeTab, setActiveTab] = useState('itinerary');
-            const [spots, setSpots] = useState(INITIAL_SPOTS);
-            const [expenses, setExpenses] = useState(INITIAL_EXPENSES);
-            const [activeDay, setActiveDay] = useState(1);
-            const [showAddModal, setShowAddModal] = useState(false);
-            const [isOptimizing, setIsOptimizing] = useState(false);
-
-            // 取得當前天數的行程
-            const currentDaySpots = spots.filter(s => s.day === activeDay);
-            const totalBudget = 100000;
-            const totalSpent = expenses.reduce((acc, cur) => acc + cur.amount, 0);
-
-            // --- 功能邏輯 ---
-
-            // 模擬 AI 順路 (前端模擬，若有 API Key 可改為真實呼叫)
-            const handleOptimize = () => {
-                setIsOptimizing(true);
-                setTimeout(() => {
-                    const hotelStart = currentDaySpots.find(s => s.icon === 'Hotel' && s.time < '12:00');
-                    const hotelEnd = currentDaySpots.find(s => s.icon === 'Hotel' && s.time > '12:00');
-                    const others = currentDaySpots.filter(s => s.icon !== 'Hotel');
-                    
-                    // 簡單的隨機洗牌模擬 "AI 計算"
-                    const shuffled = [...others].sort(() => Math.random() - 0.5);
-                    
-                    // 重新分配時間
-                    let currentTime = 9; // 從 9 點開始
-                    const newDaySpots = [];
-                    
-                    if (hotelStart) newDaySpots.push(hotelStart);
-                    
-                    shuffled.forEach((spot, index) => {
-                        currentTime += 1.5; // 假設每個點玩 1.5 小時
-                        const hour = Math.floor(currentTime);
-                        const minute = (currentTime - hour) * 60;
-                        const timeStr = `${hour.toString().padStart(2, '0')}:${minute === 0 ? '00' : '30'}`;
-                        newDaySpots.push({ ...spot, time: timeStr });
-                    });
-
-                    if (hotelEnd) {
-                        newDaySpots.push({ ...hotelEnd, time: '18:00' });
-                    }
-
-                    // 更新 State
-                    const otherDaysSpots = spots.filter(s => s.day !== activeDay);
-                    setSpots([...otherDaysSpots, ...newDaySpots].sort((a, b) => a.time.localeCompare(b.time)));
-                    
-                    setIsOptimizing(false);
-                    alert("✨ AI 已為您優化最佳路徑！");
-                }, 1500);
-            };
-
-            // 新增地點
-            const handleAddSpot = (newSpot) => {
-                const spot = {
-                    ...newSpot,
-                    id: Date.now(),
-                    day: activeDay,
+                const Icons = {
+                    Calendar: <><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></>,
+                    MapPin: <><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></>,
+                    Train: <><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="8" y2="21" /><line x1="16" y1="21" x2="16" y2="21" /><path d="M2 17h20" /><path d="M4 17l1.5 4" /><path d="M20 17l-1.5 4" /></>,
+                    ShoppingBag: <><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" /></>,
+                    Wallet: <><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" /><path d="M4 6v12a2 2 0 0 0 2 2h14v-4" /><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z" /></>,
+                    List: <><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></>,
+                    User: <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>,
+                    Plus: <><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></>,
+                    CheckCircle: <><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></>,
+                    Plane: <><path d="M2 22h20" /><path d="M12 2l3.09 10.91L21 16l-1.04 2.87-8.08-2.61L6.1 22 2.87 21l3.09-8.73L2 2" /></>,
+                    Home: <><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></>,
+                    Settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></>,
+                    Sparkles: <><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /><path d="M5 3v4" /><path d="M9 5H5" /><path d="M3 5h2" /><path d="M5 7v-2" /></>,
+                    Camera: <><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3" /></>,
+                    Utensils: <><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" /><path d="M7 2v20" /><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" /></>,
+                    X: <><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></>,
+                    Navigation: <polygon points="3 11 22 2 13 21 11 13 3 11" />,
                 };
-                // 插入並排序
-                const newSpots = [...spots, spot].sort((a, b) => a.time.localeCompare(b.time));
-                setSpots(newSpots);
-                setShowAddModal(false);
-            };
 
-            // 新增記帳
-            const handleAddExpense = (newExpense) => {
-                setExpenses([...expenses, { ...newExpense, id: Date.now() }]);
-            };
+                const Calendar = (props) => <Icon path={Icons.Calendar} {...props} />;
+                const MapPin = (props) => <Icon path={Icons.MapPin} {...props} />;
+                const Train = (props) => <Icon path={Icons.Train} {...props} />;
+                const ShoppingBag = (props) => <Icon path={Icons.ShoppingBag} {...props} />;
+                const Wallet = (props) => <Icon path={Icons.Wallet} {...props} />;
+                const List = (props) => <Icon path={Icons.List} {...props} />;
+                const User = (props) => <Icon path={Icons.User} {...props} />;
+                const Plus = (props) => <Icon path={Icons.Plus} {...props} />;
+                const CheckCircle = (props) => <Icon path={Icons.CheckCircle} {...props} />;
+                const Plane = (props) => <Icon path={Icons.Plane} {...props} />;
+                const Home = (props) => <Icon path={Icons.Home} {...props} />;
+                const Settings = (props) => <Icon path={Icons.Settings} {...props} />;
+                const Sparkles = (props) => <Icon path={Icons.Sparkles} {...props} />;
+                const Camera = (props) => <Icon path={Icons.Camera} {...props} />;
+                const Utensils = (props) => <Icon path={Icons.Utensils} {...props} />;
+                const X = (props) => <Icon path={Icons.X} {...props} />;
+                const Navigation = (props) => <Icon path={Icons.Navigation} {...props} />;
 
-            return (
-                <div className="flex flex-col h-full max-w-md mx-auto bg-[#FDFCF8] shadow-2xl overflow-hidden relative border-x border-gray-100">
-                    
-                    {/* 頂部背景圖 (裝飾) */}
-                    <div className="h-48 w-full bg-gray-800 relative shrink-0">
-                        <img src="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Kyoto" className="w-full h-full object-cover opacity-60" />
-                        <div className="absolute bottom-4 left-4 text-white">
-                            <div className="text-2xl font-bold tracking-widest">2026 阪京之旅</div>
-                            <div className="text-xs opacity-80 mt-1">1/17 - 1/22</div>
-                        </div>
-                        <div className="absolute top-4 right-4 text-white/80">
-                            <i className="fas fa-cog"></i>
-                        </div>
-                    </div>
+                const THEMES = {
+                    gold: { name: '金閣', primary: 'bg-amber-500', secondary: 'bg-amber-100', text: 'text-amber-600', ring: 'ring-amber-500', border: 'border-amber-500', shadow: 'shadow-amber-200' },
+                    green: { name: '宇治', primary: 'bg-emerald-600', secondary: 'bg-emerald-100', text: 'text-emerald-700', ring: 'ring-emerald-600', border: 'border-emerald-600', shadow: 'shadow-emerald-200' },
+                    pink: { name: '哲學', primary: 'bg-rose-400', secondary: 'bg-rose-100', text: 'text-rose-500', ring: 'ring-rose-400', border: 'border-rose-400', shadow: 'shadow-rose-200' },
+                    blue: { name: '鴨川', primary: 'bg-sky-500', secondary: 'bg-sky-100', text: 'text-sky-600', ring: 'ring-sky-500', border: 'border-sky-500', shadow: 'shadow-sky-200' },
+                    grey: { name: '祇園', primary: 'bg-stone-600', secondary: 'bg-stone-200', text: 'text-stone-700', ring: 'ring-stone-600', border: 'border-stone-600', shadow: 'shadow-stone-200' },
+                };
 
-                    {/* 主要內容區 */}
-                    <div className="flex-1 overflow-y-auto no-scrollbar relative bg-[#FDFCF8] -mt-4 rounded-t-3xl z-10">
-                        
-                        {/* 行程分頁內容 */}
-                        {activeTab === 'itinerary' && (
-                            <ItineraryView 
-                                activeDay={activeDay} 
-                                setActiveDay={setActiveDay} 
-                                spots={currentDaySpots} 
-                                onOptimize={handleOptimize}
-                                isOptimizing={isOptimizing}
-                            />
-                        )}
+                const INITIAL_ITINERARY = [
+                    {
+                        day: 1, date: "1/17 (六)", 
+                        spots: [
+                            { id: 'start', type: 'start', name: "Vessel Inn Namba", time: "09:00", desc: "點擊導航", icon: Home },
+                            { id: 't1', type: 'transport', name: "御堂筋線", time: "約 15分", icon: Train },
+                            { id: 1, type: 'spot', name: "大阪城天守閣", sub: "大阪・中央區", time: "10:00", img: "https://images.unsplash.com/photo-1543789311-53644a4b27c1?auto=format&fit=crop&q=80&w=600", icon: MapPin },
+                            { id: 't2', type: 'transport', name: "JR環狀線", time: "約 20分", icon: Train },
+                            { id: 2, type: 'spot', name: "通天閣", sub: "新世界商店街", time: "12:00", img: "https://images.unsplash.com/photo-1590554881752-9a840e96e24c?auto=format&fit=crop&q=80&w=600", icon: MapPin },
+                            { id: 't3', type: 'transport', name: "步行", time: "約 10分", icon: User },
+                            { id: 3, type: 'food', name: "千房 大阪燒", sub: "大阪・道頓堀", time: "13:30", img: "https://images.unsplash.com/photo-1582450871972-ab5ca641643d?auto=format&fit=crop&q=80&w=600", icon: Utensils },
+                            { id: 4, type: 'shop', name: "心齋橋筋", sub: "藥妝採購", time: "15:00", img: "https://images.unsplash.com/photo-1590253232298-23961168f080?auto=format&fit=crop&q=80&w=600", icon: ShoppingBag },
+                            { id: 'end', type: 'return', name: "Vessel Inn Namba", time: "", desc: "點擊導航", icon: Home },
+                        ]
+                    },
+                    { day: 2, date: "1/18 (日)", spots: [] },
+                    { day: 3, date: "1/19 (一)", spots: [] },
+                    { day: 4, date: "1/20 (二)", spots: [] },
+                    { day: 5, date: "1/21 (三)", spots: [] },
+                ];
 
-                        {/* 記帳分頁內容 */}
-                        {activeTab === 'wallet' && (
-                            <WalletView 
-                                totalBudget={totalBudget} 
-                                totalSpent={totalSpent} 
-                                expenses={expenses}
-                                onAddExpense={handleAddExpense}
-                            />
-                        )}
-
-                        {/* 手冊分頁內容 */}
-                        {activeTab === 'guide' && <GuideView />}
-                         
-                        {/* 地圖分頁 (靜態模擬) */}
-                        {activeTab === 'map' && (
-                             <div className="p-6 text-center text-gray-400 mt-20">
-                                <div className="text-6xl mb-4 text-gray-200"><Icons.Map /></div>
-                                <p>地圖模式載入中...</p>
-                                <p className="text-xs mt-2">(此為模擬介面，無真實 GPS 功能)</p>
-                            </div>
-                        )}
-                        
-                        {/* 底部留白給 Fab 和 TabBar */}
-                        <div className="h-24"></div>
-                    </div>
-
-                    {/* 浮動按鈕 (FAB) - 只在行程和錢包頁面顯示 */}
-                    {(activeTab === 'itinerary' || activeTab === 'wallet') && (
-                        <button 
-                            onClick={() => setShowAddModal(true)}
-                            className="absolute bottom-24 left-1/2 transform -translate-x-1/2 bg-kyoto-gold text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-2 hover:bg-[#c49f30] transition-colors z-20 font-bold"
-                        >
-                            <Icons.Plus /> {activeTab === 'itinerary' ? '新增地點' : '記上一筆'}
-                        </button>
-                    )}
-
-                    {/* 底部導航列 */}
-                    <div className="h-20 bg-white border-t border-gray-100 flex justify-around items-center px-2 pb-2 safe-area-bottom z-30 shrink-0">
-                        <TabButton icon="List" label="行程" active={activeTab === 'itinerary'} onClick={() => setActiveTab('itinerary')} />
-                        <TabButton icon="Map" label="地圖" active={activeTab === 'map'} onClick={() => setActiveTab('map')} />
-                        <TabButton icon="Wallet" label="錢包" active={activeTab === 'wallet'} onClick={() => setActiveTab('wallet')} />
-                        <TabButton icon="Book" label="手冊" active={activeTab === 'guide'} onClick={() => setActiveTab('guide')} />
-                    </div>
-
-                    {/* 彈出視窗：新增地點/記帳 */}
-                    {showAddModal && (
-                        <AddModal 
-                            type={activeTab} 
-                            onClose={() => setShowAddModal(false)} 
-                            onConfirm={activeTab === 'itinerary' ? handleAddSpot : handleAddExpense}
-                        />
-                    )}
-                    
-                    {/* Loading Overlay */}
-                    {isOptimizing && (
-                        <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
-                            <div className="bg-white p-6 rounded-2xl flex flex-col items-center animate-bounce">
-                                <div className="text-kyoto-gold text-4xl mb-2"><i className="fas fa-magic"></i></div>
-                                <div className="font-bold text-gray-700">AI 正在計算最佳路徑...</div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-        // --- 子組件：行程頁面 ---
-        function ItineraryView({ activeDay, setActiveDay, spots, onOptimize, isOptimizing }) {
-            const days = [1, 2, 3, 4, 5];
-            
-            return (
-                <div className="fade-in">
-                    {/* 天數選擇器 */}
-                    <div className="flex gap-3 overflow-x-auto p-4 no-scrollbar items-center sticky top-0 bg-[#FDFCF8] z-10">
-                        {days.map(d => (
-                            <button 
-                                key={d}
-                                onClick={() => setActiveDay(d)}
-                                className={`w-14 h-14 rounded-full flex flex-col items-center justify-center shrink-0 border-2 transition-all ${
-                                    activeDay === d 
-                                    ? 'bg-kyoto-gold border-kyoto-gold text-white shadow-lg scale-110' 
-                                    : 'bg-white border-gray-200 text-gray-400'
-                                }`}
-                            >
-                                <span className="text-[10px] font-bold">DAY</span>
-                                <span className="text-xl font-bold leading-none">{d}</span>
-                            </button>
-                        ))}
-                        <div className="w-4"></div>
-                    </div>
-
-                    {/* AI 按鈕與標題 */}
-                    <div className="flex justify-between items-center px-6 mb-4">
-                        <h2 className="text-2xl font-serif font-bold text-gray-800">Day {activeDay}</h2>
-                        <button 
-                            onClick={onOptimize}
-                            disabled={isOptimizing}
-                            className="bg-white border border-gray-200 shadow-sm px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 hover:bg-gray-50 transition-colors"
-                        >
-                            <span className="text-kyoto-gold"><Icons.Bolt /></span> AI 順路
-                        </button>
-                    </div>
-
-                    {/* 時間軸列表 */}
-                    <div className="px-5">
-                        {spots.map((spot, index) => (
-                            <div key={spot.id} className="flex group mb-2">
-                                {/* 左側時間軸 */}
-                                <div className="flex flex-col items-center mr-4 w-12 pt-1">
-                                    <div className="text-xs font-bold text-gray-400 mb-1">{spot.time}</div>
-                                    <div className={`w-3 h-3 rounded-full border-2 border-white shadow-sm z-10 ${
-                                        spot.category === '住宿' ? 'bg-gray-400' : 'bg-kyoto-gold'
-                                    }`}></div>
-                                    {index !== spots.length - 1 && (
-                                        <div className="w-0.5 bg-gray-200 flex-1 my-1 opacity-50"></div>
-                                    )}
-                                </div>
-                                
-                                {/* 右側卡片 */}
-                                <div className="flex-1 pb-6">
-                                    <div className="bg-white p-4 rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-gray-50 hover:shadow-md transition-shadow">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <span className="bg-gray-100 text-[10px] text-gray-500 px-1.5 py-0.5 rounded mb-2 inline-block">
-                                                    {spot.category}
-                                                </span>
-                                                <h3 className="font-bold text-lg text-gray-800 leading-tight mb-1">{spot.name}</h3>
-                                                <p className="text-xs text-gray-400 flex items-center gap-1">
-                                                    <i className="fas fa-map-marker-alt text-[10px]"></i> {spot.note || '尚未設定備註'}
-                                                </p>
-                                            </div>
-                                            <div className="text-gray-300">
-                                                <button className="p-2 hover:text-red-400 transition-colors"><Icons.Trash /></button>
-                                            </div>
-                                        </div>
-                                        
-                                        {/* 交通模擬 */}
-                                        {index !== spots.length - 1 && (
-                                            <div className="mt-4 pt-3 border-t border-dashed border-gray-100 flex items-center text-xs text-gray-400 gap-2">
-                                                <Icons.Transport />
-                                                <span>京阪本線 約 20 分</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            );
-        }
-
-        // --- 子組件：錢包頁面 ---
-        function WalletView({ totalBudget, totalSpent, expenses, onAddExpense }) {
-            const [advice, setAdvice] = useState('');
-            const [loadingAdvice, setLoadingAdvice] = useState(false);
-            
-            const balance = totalBudget - totalSpent;
-            const percentage = Math.min(100, (totalSpent / totalBudget) * 100);
-
-            // Gemini: 分析消費
-            const handleAnalyze = async () => {
-                if (expenses.length === 0) {
-                    setAdvice("還沒花錢怎麼分析啦！趕快去買買買！😂");
-                    return;
-                }
-                
-                setLoadingAdvice(true);
-                try {
-                    const expenseList = expenses.map(e => `${e.name}: ${e.amount}日圓`).join(", ");
-                    const prompt = `分析這些旅遊支出: [${expenseList}]。請用幽默、像朋友一樣的語氣，簡短(30字內)評論我的消費習慣。請回傳 JSON 格式: { "advice": "你的評論" }`;
-                    
-                    const result = await callGemini(prompt, "You are a funny financial advisor.");
-                    setAdvice(result.advice);
-                } catch (e) {
-                    setAdvice("AI 算錢算到頭暈了...請檢查 API Key 或稍後再試 😵");
-                    console.error(e);
-                } finally {
-                    setLoadingAdvice(false);
-                }
-            };
-
-            return (
-                <div className="p-6 fade-in">
-                    {/* 預算卡片 */}
-                    <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 text-white shadow-xl mb-8 relative overflow-hidden">
-                        
-                        {/* AI 顧問按鈕 */}
-                        <button 
-                            onClick={handleAnalyze}
-                            disabled={loadingAdvice}
-                            className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 backdrop-blur-sm px-3 py-1 rounded-full text-xs flex items-center gap-1 transition-all z-20"
-                        >
-                            {loadingAdvice ? <i className="fas fa-spinner fa-spin"></i> : <Icons.Magic />} 
-                            {loadingAdvice ? '分析中...' : '分析'}
-                        </button>
-
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-10 -mt-10"></div>
-                        <div className="flex justify-between items-center mb-6">
-                            <div>
-                                <div className="text-xs opacity-60 mb-1">預計花費</div>
-                                <div className="text-xl font-bold">¥{totalBudget.toLocaleString()}</div>
-                            </div>
-                            <div className="text-right">
-                                <div className="text-xs opacity-60 mb-1">已購買</div>
-                                <div className="text-xl font-bold text-kyoto-gold">¥{totalSpent.toLocaleString()}</div>
-                            </div>
-                        </div>
-                        
-                        <div className="bg-white/10 rounded-full h-1.5 w-full mb-2">
-                            <div className="bg-kyoto-gold h-1.5 rounded-full transition-all duration-1000" style={{width: `${percentage}%`}}></div>
-                        </div>
-                        <div className="flex justify-between text-xs opacity-50">
-                            <span>現金殘高</span>
-                            <span>¥{balance.toLocaleString()} / ¥{totalBudget.toLocaleString()}</span>
-                        </div>
-                    </div>
-
-                    {/* AI 建議氣泡 */}
-                    {advice && (
-                        <div className="mb-6 bg-yellow-50 border border-yellow-200 p-4 rounded-xl flex gap-3 items-start animate-[slideUp_0.3s_ease-out]">
-                            <div className="text-kyoto-gold mt-1"><Icons.Brain /></div>
-                            <div>
-                                <div className="text-xs font-bold text-gray-400 mb-1">AI 錢包顧問</div>
-                                <div className="text-gray-800 text-sm leading-relaxed">{advice}</div>
-                            </div>
-                            <button onClick={() => setAdvice('')} className="text-gray-400 ml-auto"><i className="fas fa-times"></i></button>
-                        </div>
-                    )}
-
-                    {/* 支出列表 */}
-                    <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                        <i className="fas fa-receipt text-kyoto-gold"></i> 支出明細
-                    </h3>
-                    <div className="space-y-3 pb-20">
-                        {expenses.length === 0 ? (
-                            <div className="text-center text-gray-400 py-10">尚未有任何支出</div>
-                        ) : (
-                            expenses.map(item => (
-                                <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-50 flex justify-between items-center">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
-                                            {item.type === 'food' ? <Icons.Food /> : <Icons.Shopping />}
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-gray-800">{item.name}</div>
-                                            <div className="text-xs text-gray-400">我付 • 個人</div>
-                                        </div>
-                                    </div>
-                                    <div className="font-bold font-mono text-gray-700">-¥{item.amount}</div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
-            );
-        }
-
-        // --- 子組件：手冊頁面 ---
-        function GuideView() {
-            const [checklist, setChecklist] = useState([
-                { id: 1, text: '護照 (效期6個月+)', checked: false, important: true },
-                { id: 2, text: 'VJW 填寫', checked: true, important: true },
-                { id: 3, text: '旅遊平險/不便險', checked: false, important: true },
-                { id: 4, text: 'eSIM / 漫遊', checked: false, important: false },
-                { id: 5, text: '換日幣', checked: false, important: false },
-            ]);
-
-            const toggleCheck = (id) => {
-                setChecklist(checklist.map(item => 
-                    item.id === id ? { ...item, checked: !item.checked } : item
-                ));
-            };
-
-            return (
-                <div className="p-6 fade-in">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-bold">旅のしおり</h2>
-                        <button className="text-sm bg-gray-100 px-3 py-1 rounded-full text-gray-600">
-                            <i className="fas fa-pen text-xs mr-1"></i> 編輯
-                        </button>
-                    </div>
-
-                    <div className="mb-8">
-                        <h3 className="text-sm font-bold text-gray-500 mb-3 flex items-center gap-2">
-                            <i className="far fa-check-square"></i> 準備清單
-                        </h3>
-                        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                            {checklist.map(item => (
-                                <div 
-                                    key={item.id} 
-                                    onClick={() => toggleCheck(item.id)}
-                                    className="p-4 border-b border-gray-50 last:border-0 flex items-center justify-between active:bg-gray-50 cursor-pointer"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-                                            item.checked ? 'bg-kyoto-gold border-kyoto-gold text-white' : 'border-gray-300'
-                                        }`}>
-                                            {item.checked && <i className="fas fa-check text-xs"></i>}
-                                        </div>
-                                        <span className={`${item.checked ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
-                                            {item.text}
-                                        </span>
-                                    </div>
-                                    {item.important && (
-                                        <span className="text-[10px] text-red-400 bg-red-50 px-2 py-0.5 rounded">重要</span>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div>
-                        <h3 className="text-sm font-bold text-gray-500 mb-3 flex items-center gap-2">
-                            <i className="fas fa-plane-departure"></i> 航班
-                        </h3>
-                        <div className="bg-white p-4 rounded-xl shadow-sm mb-3">
-                            <div className="text-xs text-gray-400 mb-1">去程 1/17</div>
-                            <div className="flex justify-between items-end">
-                                <div className="text-xl font-bold">10:00 -> 13:30</div>
-                                <div className="text-xs text-gray-400">JX821</div>
-                            </div>
-                            <div className="text-xs text-gray-500 mt-1"><i className="fas fa-map-marker-alt mr-1"></i> 桃園 T1</div>
-                        </div>
-                        <div className="bg-white p-4 rounded-xl shadow-sm">
-                            <div className="text-xs text-gray-400 mb-1">回程 1/22</div>
-                            <div className="flex justify-between items-end">
-                                <div className="text-xl font-bold">15:00 -> 17:10</div>
-                                <div className="text-xs text-gray-400">JX822</div>
-                            </div>
-                            <div className="text-xs text-gray-500 mt-1"><i className="fas fa-map-marker-alt mr-1"></i> 關空 T1</div>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-
-        // --- 彈出視窗組件 ---
-        function AddModal({ type, onClose, onConfirm }) {
-            const [name, setName] = useState('');
-            const [amount, setAmount] = useState('');
-            const [category, setCategory] = useState('景點');
-            const [time, setTime] = useState('12:00');
-            const [note, setNote] = useState('自訂地點');
-            
-            // AI 相關狀態
-            const [showAiSearch, setShowAiSearch] = useState(false);
-            const [aiQuery, setAiQuery] = useState('');
-            const [aiResults, setAiResults] = useState([]);
-            const [loadingAi, setLoadingAi] = useState(false);
-
-            const handleSubmit = () => {
-                if (!name) return;
-                
-                if (type === 'itinerary') {
-                    const iconMap = { '景點': 'Spot', '美食': 'Food', '購物': 'Shopping' };
-                    onConfirm({
-                        name,
-                        category,
-                        time,
-                        icon: iconMap[category] || 'Spot',
-                        note: note
-                    });
-                } else {
-                    onConfirm({
-                        name,
-                        amount: parseInt(amount) || 0,
-                        type: 'food' 
-                    });
-                }
-            };
-
-            // Gemini: 搜尋地點
-            const handleAiSearch = async () => {
-                if (!aiQuery) return;
-                setLoadingAi(true);
-                setAiResults([]);
-                try {
-                    const prompt = `User query: "${aiQuery}" in Kyoto/Osaka. Suggest 3 specific places. 
-                    Return a strictly valid JSON array (no markdown code blocks) of objects with: 
-                    name (string), 
-                    category (one of: '景點', '美食', '購物'), 
-                    note (short description under 10 words).`;
-                    
-                    const results = await callGemini(prompt, "You are a local Kyoto travel guide. Return pure JSON.");
-                    if (Array.isArray(results)) {
-                        setAiResults(results);
-                    }
-                } catch (e) {
-                    console.error(e);
-                    // 讓用戶知道失敗了
-                    setAiResults([{ name: "AI 搜尋失敗", category: "景點", note: "請檢查網路或 API Key 限制" }]);
-                } finally {
-                    setLoadingAi(false);
-                }
-            };
-
-            const selectAiResult = (result) => {
-                setName(result.name);
-                setCategory(result.category);
-                setNote(result.note);
-                setShowAiSearch(false);
-            };
-
-            return (
-                <div className="absolute inset-0 z-50 flex items-end">
-                    <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose}></div>
-                    <div className="bg-white w-full rounded-t-3xl p-6 relative z-10 animate-[slideUp_0.3s_ease-out] max-h-[90vh] overflow-y-auto">
-                        <div className="w-12 h-1 bg-gray-200 rounded-full mx-auto mb-6"></div>
-                        
-                        <h3 className="text-xl font-bold mb-6 text-center flex items-center justify-center gap-2">
-                            {type === 'itinerary' ? (showAiSearch ? '✨ AI 景點探勘' : '新增許願地點') : '記下一筆'}
-                        </h3>
-
-                        {/* AI 搜尋模式切換 (僅限行程) */}
-                        {type === 'itinerary' && !showAiSearch && (
-                            <button 
-                                onClick={() => setShowAiSearch(true)}
-                                className="w-full mb-6 bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg animate-sparkle"
-                            >
-                                <Icons.Magic /> ✨ AI 幫我找靈感
-                            </button>
-                        )}
-
-                        <div className="space-y-4 mb-8">
-                            
-                            {/* AI 搜尋介面 */}
-                            {showAiSearch ? (
-                                <div className="space-y-4">
-                                    <div className="flex gap-2">
-                                        <input 
-                                            type="text" 
-                                            value={aiQuery}
-                                            onChange={(e) => setAiQuery(e.target.value)}
-                                            placeholder="例如：清水寺附近的抹茶、安靜的神社..."
-                                            className="flex-1 bg-gray-50 border border-purple-200 rounded-xl p-3 outline-none focus:border-purple-500"
-                                            onKeyDown={(e) => e.key === 'Enter' && handleAiSearch()}
-                                        />
-                                        <button 
-                                            onClick={handleAiSearch}
-                                            disabled={loadingAi}
-                                            className="bg-purple-600 text-white px-4 rounded-xl disabled:bg-gray-300"
-                                        >
-                                            {loadingAi ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-search"></i>}
-                                        </button>
-                                    </div>
-                                    
-                                    <div className="space-y-2">
-                                        {aiResults.map((result, idx) => (
-                                            <div 
-                                                key={idx} 
-                                                onClick={() => selectAiResult(result)}
-                                                className="p-3 border border-gray-100 rounded-xl hover:bg-purple-50 hover:border-purple-200 cursor-pointer transition-colors flex justify-between items-center group"
-                                            >
-                                                <div>
-                                                    <div className="font-bold text-gray-800">{result.name}</div>
-                                                    <div className="text-xs text-gray-500">{result.category} • {result.note}</div>
-                                                </div>
-                                                <i className="fas fa-plus-circle text-gray-300 group-hover:text-purple-500"></i>
-                                            </div>
-                                        ))}
-                                        {aiResults.length === 0 && !loadingAi && (
-                                            <div className="text-center text-gray-400 text-sm py-4">
-                                                輸入關鍵字，讓 AI 為您推薦私房景點
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <button 
-                                        onClick={() => setShowAiSearch(false)}
-                                        className="w-full text-gray-400 text-sm py-2"
-                                    >
-                                        返回手動輸入
+                const Modal = ({ isOpen, onClose, children, title }) => {
+                    if (!isOpen) return null;
+                    return (
+                        <div className="fixed inset-0 bg-black/60 z-[100] flex items-end justify-center backdrop-blur-sm transition-opacity duration-300">
+                            <div className="bg-[#FDFCF8] w-full max-w-[480px] rounded-t-[2rem] p-6 animate-slide-up shadow-2xl max-h-[85vh] overflow-y-auto safe-area-bottom">
+                                <div className="flex justify-between items-center mb-6 sticky top-0 bg-[#FDFCF8] z-10">
+                                    <h3 className="font-bold text-xl text-stone-800 tracking-wide">{title}</h3>
+                                    <button onClick={onClose} className="p-2 bg-stone-100 rounded-full hover:bg-stone-200 transition-colors">
+                                        <X size={20} className="text-stone-500" />
                                     </button>
                                 </div>
-                            ) : (
-                                <React.Fragment>
-                                    {/* 一般輸入介面 */}
-                                    {type === 'itinerary' && (
-                                        <div className="flex justify-center gap-4 mb-6">
-                                            {['景點', '美食', '購物'].map(cat => (
-                                                <button 
-                                                    key={cat}
-                                                    onClick={() => setCategory(cat)}
-                                                    className={`w-16 h-16 rounded-xl flex flex-col items-center justify-center gap-1 border-2 transition-all ${
-                                                        category === cat 
-                                                        ? 'border-kyoto-gold bg-kyoto-gold/10 text-kyoto-gold' 
-                                                        : 'border-gray-100 text-gray-400'
-                                                    }`}
-                                                >
-                                                    <i className={`fas ${cat === '景點' ? 'fa-camera' : cat === '美食' ? 'fa-utensils' : 'fa-shopping-bag'}`}></i>
-                                                    <span className="text-xs">{cat}</span>
+                                {children}
+                            </div>
+                        </div>
+                    );
+                };
+
+                const HomeView = ({ theme, setThemeColor, setShowThemeSettings, showThemeSettings }) => {
+                    const [wishlist, setWishlist] = useState([]);
+                    const [showAddSpot, setShowAddSpot] = useState(false);
+                    const [spotType, setSpotType] = useState('spot');
+                    const [spotName, setSpotName] = useState('');
+
+                    const handleAddSpot = () => {
+                        if (spotName) {
+                            setWishlist([...wishlist, { id: Date.now(), name: spotName, type: spotType }]);
+                            setSpotName('');
+                            setShowAddSpot(false);
+                        }
+                    };
+
+                    return (
+                        <div className="pb-28 min-h-full bg-[#FDFCF8]">
+                            <div className="relative h-[35vh] max-h-[400px] w-full overflow-hidden rounded-b-[2.5rem] shadow-xl">
+                                <img 
+                                    src="https://images.unsplash.com/photo-1590253232298-23961168f080?auto=format&fit=crop&q=80&w=1000" 
+                                    alt="Dotonbori Night" 
+                                    className="w-full h-full object-cover brightness-[0.7]"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30"></div>
+                                
+                                <button 
+                                    onClick={() => setShowThemeSettings(true)}
+                                    className="absolute top-12 right-6 p-2.5 bg-white/10 backdrop-blur-md rounded-full text-white border border-white/20 hover:bg-white/20 transition-all active:scale-95"
+                                >
+                                    <Settings size={20} />
+                                </button>
+
+                                <div className="absolute bottom-8 left-8 text-white">
+                                    <h1 className="text-4xl font-serif font-bold tracking-wider mb-2 drop-shadow-lg">2026大阪之旅</h1>
+                                    <div className="flex items-center gap-2 opacity-90 text-sm font-medium tracking-widest bg-white/20 px-3 py-1 rounded-full w-fit backdrop-blur-sm">
+                                        <Calendar size={14} />
+                                        <span>1/17 - 1/22</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="px-6 -mt-10 relative z-10">
+                                <div className={`${theme.primary} rounded-3xl p-6 text-white shadow-xl shadow-stone-200 mb-6 relative overflow-hidden ring-4 ring-[#FDFCF8]`}>
+                                    <div className="relative z-10">
+                                        <h2 className="font-bold text-lg flex items-center gap-2 mb-1">
+                                            <span className="text-xl">♥</span> 收藏清單
+                                        </h2>
+                                        <p className="text-xs opacity-90 font-light">收錄想去的大阪角落，與心愛的人共享。</p>
+                                    </div>
+                                    <div className="absolute -right-4 -bottom-8 opacity-20 text-9xl font-serif select-none pointer-events-none">✿</div>
+                                </div>
+
+                                <button 
+                                    onClick={() => setShowAddSpot(true)}
+                                    className={`w-full border-2 border-dashed ${theme.border} ${theme.text} bg-stone-50 rounded-2xl py-4 font-bold flex items-center justify-center gap-2 hover:bg-stone-100 transition-colors mb-6 active:scale-[0.98]`}
+                                >
+                                    <Plus size={18} />
+                                    新增許願地點
+                                </button>
+
+                                {wishlist.length === 0 ? (
+                                    <div className="bg-[#F5F5F0] rounded-2xl h-32 flex items-center justify-center border border-stone-100 mb-8">
+                                        <p className="text-stone-400 text-sm font-medium">尚未收藏任何地點</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-3 mb-8 animate-slide-up">
+                                        {wishlist.map(item => (
+                                            <div key={item.id} className="bg-white p-4 rounded-2xl shadow-sm border border-stone-100 aspect-square flex flex-col justify-between">
+                                                <div className={`w-8 h-8 rounded-full ${item.type === 'food' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'} flex items-center justify-center`}>
+                                                    {item.type === 'spot' && <MapPin size={14} />}
+                                                    {item.type === 'food' && <Utensils size={14} />}
+                                                    {item.type === 'shop' && <ShoppingBag size={14} />}
+                                                </div>
+                                                <span className="font-bold text-stone-700">{item.name}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <Modal isOpen={showThemeSettings} onClose={() => setShowThemeSettings(false)} title="風格設定">
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="text-sm font-bold text-stone-500 mb-3 block">主題色系</label>
+                                        <div className="flex justify-between gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                                            {Object.entries(THEMES).map(([key, t]) => (
+                                                <button key={key} onClick={() => setThemeColor(key)} className="flex flex-col items-center gap-2 group flex-shrink-0">
+                                                    <div className={`w-14 h-14 rounded-2xl ${t.primary} ${theme === t ? 'ring-4 ring-offset-2 ring-stone-200 scale-105' : 'opacity-70 group-hover:opacity-100'} transition-all flex items-center justify-center text-white shadow-md`}>
+                                                        {theme === t && <CheckCircle size={24} />}
+                                                    </div>
+                                                    <span className="text-xs font-bold text-stone-500">{t.name}</span>
                                                 </button>
                                             ))}
                                         </div>
-                                    )}
-
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-400 block mb-1">名稱</label>
-                                        <input 
-                                            type="text" 
-                                            value={name}
-                                            onChange={(e) => setName(e.target.value)}
-                                            placeholder={type === 'itinerary' ? "例如: 清水寺" : "例如: 章魚燒"}
-                                            className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-kyoto-gold"
-                                            autoFocus={!showAiSearch}
-                                        />
                                     </div>
+                                    <button onClick={() => setShowThemeSettings(false)} className={`w-full py-4 ${theme.primary} text-white font-bold rounded-2xl mt-4 shadow-lg active:scale-95 transition-transform`}>完成</button>
+                                </div>
+                            </Modal>
 
-                                    {type === 'itinerary' ? (
-                                        <div className="flex gap-3">
-                                            <div className="flex-1">
-                                                <label className="text-xs font-bold text-gray-400 block mb-1">預計時間</label>
-                                                <input 
-                                                    type="time" 
-                                                    value={time}
-                                                    onChange={(e) => setTime(e.target.value)}
-                                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-kyoto-gold"
-                                                />
-                                            </div>
-                                            <div className="flex-[2]">
-                                                <label className="text-xs font-bold text-gray-400 block mb-1">備註</label>
-                                                <input 
-                                                    type="text" 
-                                                    value={note}
-                                                    onChange={(e) => setNote(e.target.value)}
-                                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-kyoto-gold"
-                                                />
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div>
-                                            <label className="text-xs font-bold text-gray-400 block mb-1">金額 (¥)</label>
-                                            <input 
-                                                type="number" 
-                                                value={amount}
-                                                onChange={(e) => setAmount(e.target.value)}
-                                                placeholder="0"
-                                                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:border-kyoto-gold font-mono"
-                                            />
-                                        </div>
-                                    )}
-                                </React.Fragment>
-                            )}
+                            <Modal isOpen={showAddSpot} onClose={() => setShowAddSpot(false)} title="新增地點">
+                                <div className="space-y-4">
+                                    <div className="flex bg-stone-100 p-1 rounded-xl mb-4">
+                                        {[{ id: 'spot', label: '景點', icon: MapPin }, { id: 'food', label: '美食', icon: Utensils }, { id: 'shop', label: '購物', icon: ShoppingBag }].map(type => (
+                                            <button
+                                                key={type.id}
+                                                onClick={() => setSpotType(type.id)}
+                                                className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${spotType === type.id ? `${theme.primary} text-white shadow-md` : 'text-stone-400'}`}
+                                            >
+                                                <type.icon size={16} />{type.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-stone-400 uppercase ml-1 mb-1 block">NAME</label>
+                                        <input value={spotName} onChange={(e) => setSpotName(e.target.value)} placeholder="地點名稱" className={`w-full bg-white border-2 border-stone-200 p-4 rounded-xl font-bold text-lg outline-none focus:${theme.border} transition-colors`} />
+                                    </div>
+                                    <button className="w-full border-2 border-dashed border-stone-300 text-stone-400 p-4 rounded-xl flex items-center justify-center gap-2 hover:bg-stone-50 transition-colors">
+                                        <Camera size={18} /> 上傳封面
+                                    </button>
+                                    <button onClick={handleAddSpot} className={`w-full py-4 ${theme.primary} text-white font-bold rounded-xl shadow-lg mt-2 active:scale-95 transition-transform`}>加入清單</button>
+                                </div>
+                            </Modal>
                         </div>
+                    );
+                };
 
-                        {!showAiSearch && (
-                            <div className="flex gap-3">
-                                <button onClick={onClose} className="flex-1 py-3 rounded-xl bg-gray-100 font-bold text-gray-500">取消</button>
-                                <button onClick={handleSubmit} className="flex-1 py-3 rounded-xl bg-kyoto-gold text-white font-bold shadow-lg shadow-yellow-200">
-                                    加入清單
+                const ItineraryView = ({ theme }) => {
+                    const [currentDay, setCurrentDay] = useState(1);
+                    const currentData = INITIAL_ITINERARY.find(d => d.day === currentDay);
+
+                    return (
+                        <div className="pb-28 pt-4 bg-[#FDFCF8]">
+                            <div className="flex overflow-x-auto gap-4 px-6 py-4 no-scrollbar mb-2 snap-x">
+                                {INITIAL_ITINERARY.map((d) => (
+                                    <button
+                                        key={d.day}
+                                        onClick={() => setCurrentDay(d.day)}
+                                        className={`snap-center flex-shrink-0 w-[4.5rem] h-[4.5rem] rounded-full flex flex-col items-center justify-center transition-all duration-300 border-2 ${
+                                            currentDay === d.day
+                                                ? `${theme.primary} ${theme.border} text-white shadow-lg scale-105`
+                                                : 'bg-white text-stone-400 border-stone-100'
+                                        }`}
+                                    >
+                                        <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">Day</span>
+                                        <span className="text-2xl font-serif font-bold">{d.day}</span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="px-6 mb-8 flex justify-between items-end">
+                                <h2 className="text-4xl font-serif font-bold text-stone-800">Day {currentDay}</h2>
+                                <button className="flex items-center gap-1.5 bg-white border border-stone-200 text-stone-600 px-4 py-2 rounded-full text-xs font-bold shadow-sm active:scale-95 transition-transform">
+                                    <Sparkles size={14} /> AI 順路
                                 </button>
                             </div>
-                        )}
-                    </div>
-                </div>
-            );
-        }
 
-        function TabButton({ icon, label, active, onClick }) {
-            const IconComp = Icons[icon];
-            return (
-                <button onClick={onClick} className="flex flex-col items-center justify-center w-16 transition-colors">
-                    <div className={`text-xl mb-1 ${active ? 'text-kyoto-gold' : 'text-gray-300'}`}>
-                        <IconComp />
-                    </div>
-                    <span className={`text-[10px] font-bold ${active ? 'text-gray-800' : 'text-gray-300'}`}>
-                        {label}
-                    </span>
-                </button>
-            );
-        }
+                            <div className="relative px-4 pb-12">
+                                <div className="absolute left-[2.25rem] top-4 bottom-4 w-0.5 bg-stone-200 -z-10"></div>
+                                <div className="space-y-6">
+                                    {currentData && currentData.spots.map((item) => {
+                                        const IconComponent = item.icon;
+                                        
+                                        if (item.type === 'transport') {
+                                            return (
+                                                <div key={item.id} className="flex pl-[2.25rem] items-center relative py-2">
+                                                    <div className="absolute left-[1.65rem] w-5 h-5 bg-white border border-stone-200 rounded-full flex items-center justify-center z-10 text-stone-400">
+                                                        {IconComponent && <IconComponent size={10} />}
+                                                    </div>
+                                                    <div className="bg-[#F5F5F0] px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-bold text-stone-500 ml-6">
+                                                        <Train size={12} /><span>{item.name}</span><span className="w-px h-3 bg-stone-300"></span><span>{item.time}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        if (item.type === 'start' || item.type === 'return') {
+                                            return (
+                                                <div key={item.id} className="flex items-start gap-4">
+                                                    <div className="w-12 text-xs font-bold text-stone-400 text-right pt-2 font-mono flex-shrink-0">{item.time}</div>
+                                                    <div className="relative flex-1">
+                                                        <div className="w-3 h-3 rounded-full bg-stone-800 absolute -left-[1.8rem] top-2.5 ring-4 ring-[#FDFCF8]"></div>
+                                                        <div className="bg-white border border-stone-100 p-4 rounded-2xl shadow-sm flex items-center gap-4">
+                                                            <div className="bg-stone-100 p-2.5 rounded-xl text-stone-600">
+                                                                {IconComponent && <IconComponent size={20} />}
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-0.5">{item.type === 'start' ? 'START' : 'RETURN'}</p>
+                                                                <h3 className="font-bold text-stone-800 text-lg">{item.name}</h3>
+                                                                <div className="flex items-center gap-1 text-xs text-stone-400 mt-1"><Navigation size={10} /> {item.desc}</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        return (
+                                            <div key={item.id} className="flex items-start gap-4">
+                                                <div className="w-12 text-sm font-bold text-stone-600 text-right pt-1 font-mono flex-shrink-0">{item.time}</div>
+                                                <div className="relative flex-1">
+                                                    <div className={`w-3 h-3 rounded-full ${theme.primary} absolute -left-[1.8rem] top-2.5 ring-4 ring-[#FDFCF8]`}></div>
+                                                    <div className="bg-white rounded-3xl overflow-hidden shadow-sm border border-stone-100">
+                                                        {item.img && (
+                                                            <div className="h-32 w-full relative">
+                                                                <img src={item.img} className="w-full h-full object-cover" />
+                                                                <div className="absolute top-3 left-3 bg-white/90 backdrop-blur px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-stone-600 border border-white/50">{item.type}</div>
+                                                                <button className="absolute top-3 right-3 bg-white/80 backdrop-blur px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1 text-stone-700 border border-white/50"><List size={12}/> 詳細</button>
+                                                            </div>
+                                                        )}
+                                                        <div className="p-4">
+                                                            <h3 className="font-bold text-xl text-stone-800 mb-1">{item.name}</h3>
+                                                            <div className="flex items-center gap-1 text-stone-400 text-xs mb-4"><MapPin size={12} /> {item.sub}</div>
+                                                            <button className="w-full py-2.5 rounded-xl border border-stone-200 text-stone-400 text-sm font-bold hover:bg-stone-50 transition-colors">移出</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+                const WalletView = ({ theme }) => {
+                    const [showAddTransaction, setShowAddTransaction] = useState(false);
+                    const [transactions, setTransactions] = useState([]);
+                    const [txName, setTxName] = useState('');
+                    const [txAmount, setTxAmount] = useState('');
+
+                    const handleAddTx = () => {
+                        if(txName && txAmount) {
+                            setTransactions([{id: Date.now(), name: txName, amount: txAmount}, ...transactions]);
+                            setTxName(''); setTxAmount(''); setShowAddTransaction(false);
+                        }
+                    };
+
+                    return (
+                        <div className="pb-28 pt-6 bg-[#FDFCF8] min-h-full px-6 flex flex-col">
+                            <div className="grid grid-cols-2 gap-4 mb-6">
+                                <div className={`${theme.primary} rounded-3xl p-5 text-white shadow-xl shadow-stone-200 relative overflow-hidden h-36 flex flex-col justify-between`}>
+                                    <div className="absolute -right-4 -top-4 opacity-10"><Wallet size={100} /></div>
+                                    <p className="text-xs font-bold opacity-80">總支出</p>
+                                    <p className="text-3xl font-serif font-bold">¥{transactions.reduce((acc, curr) => acc + Number(curr.amount), 0).toLocaleString()}</p>
+                                </div>
+                                <div className="bg-[#E0F2F1] text-[#00695C] rounded-3xl p-5 shadow-sm h-36 flex flex-col justify-between border border-[#B2DFDB]">
+                                    <p className="text-xs font-bold opacity-70">他需給妳</p>
+                                    <p className="text-3xl font-serif font-bold">¥0</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-white border border-stone-100 rounded-3xl p-6 shadow-sm mb-6">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-2 bg-stone-50 rounded-lg text-stone-600"><Wallet size={20}/></div>
+                                    <span className="font-bold text-stone-700">現金殘高</span>
+                                    <span className="ml-auto font-mono text-sm text-stone-400">¥100,000 / ¥100,000</span>
+                                </div>
+                                <div className="w-full bg-stone-100 h-2 rounded-full overflow-hidden mb-2">
+                                    <div className="w-full h-full bg-stone-300"></div>
+                                </div>
+                                <p className="text-[10px] text-center text-stone-300">設定總現金預算 ¥100,000</p>
+                            </div>
+
+                            <div className="flex-1">
+                                {transactions.length === 0 ? (
+                                    <div className="text-center pt-8 opacity-40">
+                                        <p className="text-xs font-bold uppercase tracking-widest text-stone-400">尚無支出紀錄</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {transactions.map(tx => (
+                                            <div key={tx.id} className="flex justify-between items-center p-3 border-b border-stone-50">
+                                                <span className="font-bold text-stone-700">{tx.name}</span>
+                                                <span className="font-mono font-bold text-stone-800">-¥{Number(tx.amount).toLocaleString()}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <button 
+                                onClick={() => setShowAddTransaction(true)}
+                                className={`w-full ${theme.primary} text-white font-bold py-4 rounded-2xl shadow-lg mt-4 flex items-center justify-center gap-2 active:scale-95 transition-transform`}
+                            >
+                                <Plus size={20} /> 記一筆
+                            </button>
+
+                            <Modal isOpen={showAddTransaction} onClose={() => setShowAddTransaction(false)} title="記一筆">
+                                <div className="flex flex-col gap-4">
+                                    <div className="flex gap-2">
+                                        <input value={txName} onChange={e=>setTxName(e.target.value)} placeholder="例如：章魚燒" className="flex-[2] bg-stone-50 p-4 rounded-xl text-base font-bold outline-none border border-transparent focus:border-stone-200 transition-colors" />
+                                        <input value={txAmount} onChange={e=>setTxAmount(e.target.value)} type="number" placeholder="¥" className="flex-1 bg-stone-50 p-4 rounded-xl text-base font-mono outline-none border border-transparent focus:border-stone-200 transition-colors" />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <div className="bg-stone-100 p-1 rounded-xl flex text-xs font-bold text-stone-500 flex-1">
+                                            <button className="flex-1 py-2.5 bg-white rounded-lg shadow-sm text-stone-800">我付</button>
+                                            <button className="flex-1 py-2.5 hover:bg-stone-200 rounded-lg transition-colors">他付</button>
+                                        </div>
+                                        <div className="bg-stone-100 p-1 rounded-xl flex text-xs font-bold text-stone-500 flex-1">
+                                            <button className="flex-1 py-2.5 bg-white rounded-lg shadow-sm text-stone-800">現金</button>
+                                            <button className="flex-1 py-2.5 hover:bg-stone-200 rounded-lg transition-colors">刷卡</button>
+                                        </div>
+                                        <div className="relative flex-1">
+                                            <select className="w-full h-full bg-stone-100 rounded-xl text-xs font-bold text-stone-600 px-3 outline-none appearance-none border-r-[12px] border-transparent">
+                                                <option>個人</option>
+                                                <option>公費</option>
+                                                <option>代墊</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <button onClick={handleAddTx} className={`${theme.primary} text-white font-bold py-4 rounded-xl shadow-lg mt-2 active:scale-95 transition-transform flex items-center justify-center gap-2`}>
+                                        <CheckCircle size={18} /> 確認新增
+                                    </button>
+                                </div>
+                            </Modal>
+                        </div>
+                    );
+                };
+
+                const ShoppingView = ({ theme }) => {
+                    return (
+                        <div className="pb-28 pt-6 px-6 bg-[#FDFCF8] min-h-full">
+                            <div className="bg-[#FFF8E1] border border-[#FFE082] rounded-2xl p-5 flex justify-between items-center mb-6 shadow-sm">
+                                <div>
+                                    <p className="text-xs font-bold text-[#FF6F00] opacity-80 mb-1">預計花費</p>
+                                    <p className="text-3xl font-serif font-bold text-[#FF6F00]">¥0</p>
+                                </div>
+                                <div className="h-10 w-px bg-[#FFE082] opacity-50"></div>
+                                <div className="text-right">
+                                    <p className="text-xs font-bold text-stone-500 opacity-80 mb-1">已購買</p>
+                                    <p className="text-3xl font-serif font-bold text-stone-600">¥0</p>
+                                </div>
+                            </div>
+                            <button className={`${theme.primary} w-full py-4 text-white font-bold rounded-2xl shadow-lg mb-6 flex items-center justify-center gap-2 active:scale-95 transition-transform`}>
+                                <Plus size={18} /> 新增商品
+                            </button>
+                            <div className="text-center mt-20 opacity-30 flex flex-col items-center">
+                                <ShoppingBag size={48} className="mb-2"/>
+                                <p className="font-bold text-sm">尚無商品</p>
+                            </div>
+                        </div>
+                    )
+                };
+
+                const GuideView = ({ theme }) => {
+                    return (
+                        <div className="pb-28 pt-12 px-6 bg-[#FDFCF8] min-h-full">
+                            <div className="flex justify-between items-center mb-8">
+                                <h2 className="text-3xl font-serif font-bold text-stone-800">旅のしおり</h2>
+                                <button className="px-4 py-1.5 border border-stone-200 rounded-full text-xs font-bold text-stone-500">編輯</button>
+                            </div>
+                            <div className="mb-8 animate-slide-up">
+                                <h3 className="text-sm font-bold text-stone-400 mb-3 flex items-center gap-2"><CheckCircle size={14}/> 準備清單</h3>
+                                <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
+                                    {[{text: "護照 (效期6個月+)", imp: true}, {text: "VJW 填寫", imp: true}, {text: "旅遊險 / 不便險", imp: true}, {text: "eSIM / 漫遊", imp: false}].map((item, i) => (
+                                        <div key={i} className="flex items-center gap-3 p-4 border-b border-stone-50 last:border-0 hover:bg-stone-50 transition-colors cursor-pointer">
+                                            <div className="w-5 h-5 rounded border-2 border-stone-200"></div>
+                                            <span className="font-bold text-stone-700 text-sm">{item.text}</span>
+                                            {item.imp && <span className="ml-auto text-[10px] text-rose-500 bg-rose-50 px-2 py-0.5 rounded font-bold">重要</span>}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="mb-8 animate-slide-up" style={{animationDelay: '0.1s'}}>
+                                <h3 className="text-sm font-bold text-stone-400 mb-3 flex items-center gap-2"><Plane size={14}/> 航班</h3>
+                                <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-100 relative overflow-hidden">
+                                    <div className="flex justify-between mb-4 relative z-10">
+                                        <div>
+                                            <p className="text-xs font-bold text-stone-400 mb-1">1/17 去程</p>
+                                            <p className="text-2xl font-mono font-bold text-stone-800">10:00 <span className="text-stone-300 text-lg mx-1">➜</span> 13:30</p>
+                                        </div>
+                                        <span className="text-xs font-mono text-stone-300 font-bold bg-stone-50 px-2 py-1 rounded h-fit">JX821</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs font-bold text-stone-500 relative z-10"><MapPin size={12} /> 桃園 T1</div>
+                                </div>
+                            </div>
+                            <div className="mb-8 animate-slide-up" style={{animationDelay: '0.2s'}}>
+                                <h3 className="text-sm font-bold text-stone-400 mb-3 flex items-center gap-2"><Home size={14}/> 住宿</h3>
+                                <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-100 relative overflow-hidden">
+                                    <div className="flex justify-between mb-4 relative z-10">
+                                        <div>
+                                            <p className="text-xs font-bold text-stone-400 mb-1">D1 - D5</p>
+                                            <p className="text-xl font-bold text-stone-800">Vessel Inn Namba</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs font-bold text-stone-500 relative z-10"><MapPin size={12} /> 大阪府大阪市中央區...</div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                };
+
+                const TabBar = ({ activeTab, setActiveTab, theme }) => {
+                    const tabs = [
+                        { id: 'home', label: '首頁', icon: List },
+                        { id: 'itinerary', label: '行程', icon: MapPin },
+                        { id: 'wallet', label: '記帳', icon: Wallet },
+                        { id: 'shopping', label: '購物', icon: ShoppingBag },
+                        { id: 'guide', label: '手冊', icon: User },
+                    ];
+                    return (
+                        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-100 px-6 py-4 flex justify-between items-center z-[50] safe-area-bottom shadow-[0_-5px_30px_rgba(0,0,0,0.04)] sm:absolute sm:rounded-t-[2rem]">
+                            {tabs.map((tab) => {
+                                const Icon = tab.icon;
+                                const isActive = activeTab === tab.id;
+                                return (
+                                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex flex-col items-center gap-1.5 transition-all duration-300 relative ${isActive ? theme.text : 'text-stone-300'}`}>
+                                        {isActive && <div className={`absolute -top-4 w-8 h-1 ${theme.primary} rounded-full`}></div>}
+                                        <Icon size={26} strokeWidth={isActive ? 2.5 : 2} />
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    );
+                };
+
+                const App = () => {
+                    const [activeTab, setActiveTab] = useState('home');
+                    const [themeColor, setThemeColor] = useState('gold');
+                    const [showThemeSettings, setShowThemeSettings] = useState(false);
+                    const theme = THEMES[themeColor];
+
+                    useEffect(() => {
+                        const setVh = () => {
+                            let vh = window.innerHeight * 0.01;
+                            document.documentElement.style.setProperty('--vh', `${vh}px`);
+                        };
+                        setVh();
+                        window.addEventListener('resize', setVh);
+                        // 移除 Loading 畫面
+                        const loadingDiv = document.getElementById('loading');
+                        if (loadingDiv) loadingDiv.style.opacity = '0';
+                        setTimeout(() => {
+                            if (loadingDiv) loadingDiv.style.display = 'none';
+                        }, 500);
+
+                        return () => window.removeEventListener('resize', setVh);
+                    }, []);
+
+                    return (
+                        <div className="min-h-screen bg-[#F0F0F0] text-stone-800 font-sans selection:bg-amber-100 flex justify-center">
+                            <div className="w-full sm:max-w-md bg-[#FDFCF8] shadow-2xl overflow-hidden relative sm:my-8 sm:rounded-[2.5rem] flex flex-col h-[calc(var(--vh,1vh)*100)] sm:h-[90vh]">
+                                <div className="flex-1 overflow-y-auto no-scrollbar scroll-smooth">
+                                    {activeTab === 'home' && <HomeView theme={theme} setThemeColor={setThemeColor} setShowThemeSettings={setShowThemeSettings} showThemeSettings={showThemeSettings} />}
+                                    {activeTab === 'itinerary' && <ItineraryView theme={theme} />}
+                                    {activeTab === 'wallet' && <WalletView theme={theme} />}
+                                    {activeTab === 'shopping' && <ShoppingView theme={theme} />}
+                                    {activeTab === 'guide' && <GuideView theme={theme} />}
+                                </div>
+                                <TabBar activeTab={activeTab} setActiveTab={setActiveTab} theme={theme} />
+                            </div>
+                        </div>
+                    );
+                };
+
+                const root = ReactDOM.createRoot(document.getElementById('root'));
+                root.render(<App />);
+            } catch (err) {
+                console.error("Script Error:", err);
+                const errorDiv = document.getElementById('error-msg');
+                const loadingDiv = document.getElementById('loading');
+                if (loadingDiv) loadingDiv.style.display = 'none';
+                if (errorDiv) {
+                    errorDiv.style.display = 'block';
+                    errorDiv.innerHTML = `<strong>執行錯誤：</strong><br>${err.message}`;
+                }
+            }
+        });
     </script>
 </body>
 </html>
